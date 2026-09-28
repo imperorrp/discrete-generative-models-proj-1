@@ -142,6 +142,13 @@ class HyperNet(nn.Module):
         nn.init.zeros_(self.head_b.weight)
         nn.init.zeros_(self.head_b.bias)
 
+        # Fan-in scaling for A. The paper specifies only that B is zero-initialised;
+        # it does not say how A is scaled. Without this the raw head output has
+        # entries around O(1) instead of O(1/sqrt(d_in)), the LoRA branch comes out
+        # ~50x larger than the frozen branch, and training diverges within an epoch.
+        # 1/sqrt(d_in) is what an ordinary weight matrix of this fan-in would get.
+        self.register_buffer("a_scale", torch.tensor(d_in_max ** -0.5), persistent=False)
+
     def forward(self, t, y, idx, kind):
         """t (B,), y (B,cond_dim), idx (L,), kind (L,) -> A (B,L,r,d_in_max),
         B (B,L,d_out_max,r)."""
@@ -158,7 +165,7 @@ class HyperNet(nn.Module):
             acc = acc + skip(h)
         h = h + acc
 
-        a = self.head_a(h).view(b, n_layers, self.rank, self.d_in_max)
+        a = self.head_a(h).view(b, n_layers, self.rank, self.d_in_max) * self.a_scale
         bb = self.head_b(h).view(b, n_layers, self.d_out_max, self.rank)
         return a, bb
 
@@ -246,13 +253,14 @@ class TCLoRA(nn.Module):
     Arguments after `y` are forwarded to the backbone unchanged.
     """
 
-    def __init__(self, backbone: nn.Module, cond_dim: int, rank=4, scale=1.0,
+    def __init__(self, backbone: nn.Module, cond_dim: int, rank=4, alpha=1.0,
                  time_dim=64, id_dim=128, width=256, n_blocks=3, skip_names=()):
         super().__init__()
         for p in backbone.parameters():
             p.requires_grad_(False)
         self.backbone = backbone
-        self.adapted = _wrap(backbone, scale, skip_names)
+        # alpha / rank is LoRA's standard output scaling (Hu et al., arXiv:2106.09685).
+        self.adapted = _wrap(backbone, alpha / rank, skip_names)
         if not self.adapted:
             raise ValueError("no adaptable Linear or stride-1 Conv2d layers found")
 
