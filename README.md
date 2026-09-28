@@ -82,6 +82,7 @@ paper and its deviations are listed in the module docstring.
 |---|---|---|
 | `tc_lora.py` | Cho, Ohana, Jacobsen, Jothi, Chen, Mao, Can. *TC-LoRA: Temporally Modulated Conditional LoRA for Adaptive Diffusion Control.* NeurIPS 2025 SpaVLE workshop. arXiv:2510.09561 | No code released (checked 2026-09-28). Reimplemented from Eq. 1 and Appendices A–B. Seven deviations documented in the file header. |
 | `cross_attention.py` | Chen et al. *PixArt-α: Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis.* ICLR 2024. arXiv:2310.00426 | [Official code](https://github.com/PixArt-alpha/PixArt-alpha) read; `MultiHeadCrossAttention` and its zero-init re-expressed in plain PyTorch for a conv U-Net. Five deviations in the file header. |
+| `tfg.py` | Ye, Lin, Han, Xu, Liu, Liang, Ma, Zou, Ermon. *TFG: Unified Training-Free Guidance for Diffusion Models.* NeurIPS 2024. arXiv:2409.15761 | [Official code](https://github.com/YWolfeee/Training-Free-Guidance) read; `guide_step` re-expressed against our DDIM sampler with their schedules and their CIFAR-10 hyperparameters as defaults. Six deviations in the file header. |
 
 Pretrained CIFAR-100 classifiers are from
 [chenyaofo/pytorch-cifar-models](https://github.com/chenyaofo/pytorch-cifar-models),
