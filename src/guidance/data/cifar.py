@@ -12,8 +12,14 @@ batch_size = 64
 num_classes = 100
 null_class = num_classes
 
-# Places a pre-downloaded copy might already be sitting.
-SEARCH_PATHS = ("./cifar", "./data", "../cifar", "../../cifar")
+# Places a pre-downloaded copy might already be sitting. torchvision fetches from
+# www.cs.toronto.edu/~kriz/, which is rate-limited to roughly 50 kB/s, so a 169MB
+# download takes the better part of an hour. Always prefer a local copy.
+SEARCH_PATHS = (
+    "./cifar", "./data", "../cifar", "../../cifar",       # local checkout
+    "/content/cifar", "/content/data",                     # Colab session storage
+    "/content/drive/MyDrive/cifar",                        # Colab with Drive mounted
+)
 
 
 def find_root(root=None):
@@ -24,10 +30,12 @@ def find_root(root=None):
         if os.path.isdir(os.path.join(path, "cifar-100-python")):
             print(f"using pre-downloaded CIFAR-100 at {path}")
             return path, False
+    print("no local CIFAR-100 found; downloading from cs.toronto.edu (slow, ~169MB)")
     return "./data", True
 
 
-def make_loaders(root=None, batch_size=batch_size, seed=seed):
+def make_loaders(root=None, batch_size=batch_size, seed=seed, limit=0):
+    """limit > 0 keeps only that many training images, for quick smoke tests."""
     torch.manual_seed(seed)
     root, download = find_root(root)
 
@@ -45,6 +53,10 @@ def make_loaders(root=None, batch_size=batch_size, seed=seed):
         indices = indices[torch.randperm(len(indices), generator=rng)]
         val_indices.extend(indices[:50].tolist())
         train_indices.extend(indices[50:].tolist())
+
+    if limit:
+        train_indices = train_indices[:limit]
+        val_indices = val_indices[:max(limit // 9, batch_size)]
 
     train_loader = DataLoader(Subset(full_train, train_indices),
                               batch_size=batch_size,
