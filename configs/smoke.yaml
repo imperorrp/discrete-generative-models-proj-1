@@ -1,5 +1,3 @@
-# E0: tiny end-to-end run. Both families train, guidance changes the samples, a
-# manifest is written. ~2 minutes on CPU. Run before real data and after any refactor.
 defaults: base.yaml
 experiment_id: E0
 name: smoke

@@ -1,6 +1,3 @@
-# Shared by every run. Anything set here is common across BOTH model families --
-# that sharing is what makes the section 4.2 comparison matched. Think before
-# overriding any of it per-family.
 seed: 0
 device: cuda
 out_root: results
@@ -12,11 +9,11 @@ optim:
   schedule: cosine
 
 train:
-  p_drop_cond: 0.10        # fixed across ALL runs; never a confound
-  val_every: 1             # epochs
-  fid_every: 10            # epochs; selection is on this, not on val loss
+  p_drop_cond: 0.10
+  val_every: 1
+  fid_every: 10
   select_on: fid
 
 eval:
-  n_samples: 10000         # FID is unstable below ~10k. State the count in every caption.
+  n_samples: 10000
   seeds: [0, 1, 2]

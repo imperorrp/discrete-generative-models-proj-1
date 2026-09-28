@@ -28,3 +28,6 @@ paper/main.pdf
 # OS / tooling
 .DS_Store
 wandb/
+
+# Working notes, not part of the repo
+notes/

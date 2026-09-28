@@ -1,1 +1,1 @@
-"""TODO. See the package docstring in sampling/__init__.py."""
+"""Guidance rules: fixed CFG, interval, CFG++, autoguidance, and ours."""

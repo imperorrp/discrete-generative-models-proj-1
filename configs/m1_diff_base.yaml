@@ -6,15 +6,14 @@ model_family: diffusion
 
 data: {dataset: cifar100, split: [0.9, 0.1], batch_size: 128}
 
-# SAME backbone block as m1_fm_base.yaml. Only the three lines under `diffusion`
-# and the sampler differ. Parameter counts must match within 2% -- report both.
+# Backbone block is identical to m1_fm_base.yaml.
 backbone:
   arch: unet
   base_channels: 64
   norm: group
   groups: 8
   num_classes: 100
-  cond: bias                # class embedding added as a per-channel bias
+  cond: bias
 
 diffusion:
   schedule: cosine
@@ -24,4 +23,4 @@ diffusion:
 
 epochs: 60
 sampling: {n_steps_sweep: [10, 50]}
-guidance: {mode: fixed, w: 1.0}     # section 4.2 is run at w=1: conditional, unamplified
+guidance: {mode: fixed, w: 1.0}

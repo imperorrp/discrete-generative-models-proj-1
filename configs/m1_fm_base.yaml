@@ -6,7 +6,8 @@ model_family: flow_matching
 
 data: {dataset: cifar100, split: [0.9, 0.1], batch_size: 128}
 
-backbone:                   # byte-identical to m1_diff_base.yaml
+# Backbone block is identical to m1_diff_base.yaml.
+backbone:
   arch: unet
   base_channels: 64
   norm: group
@@ -15,7 +16,7 @@ backbone:                   # byte-identical to m1_diff_base.yaml
   cond: bias
 
 flow:
-  path: linear              # x_t = (1-t) x0 + t x1
+  path: linear
   time_dist: uniform
   solver: euler
 
