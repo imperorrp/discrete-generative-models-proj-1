@@ -23,6 +23,11 @@ WHAT WE FOLLOW FROM THEIR CODE (Algorithm 1 of the paper)
       3. Mean guidance      Delta_0 accumulated over N_iter steps of
                             Delta_0 += mu_t * grad_{x_0} log f~(x_{0|t} + Delta_0).
       4. x_{t-1} = DDIM(x_t, x_{0|t}) + Delta_t / sqrt(alpha_t) + Delta_0 * sqrt(abar_{t-1}).
+         The DDIM step here is their `_predict_x_prev_from_zero`: it RECOMPUTES eps from
+         the clipped x_{0|t} before stepping. A sampler that clips x0 but keeps the
+         original eps is a different update whenever the clamp engages, and the two can
+         differ by O(1) on real images. Any "plain DDIM" this is compared against must
+         use the same convention, or the rho = mu = 0 equality check fails.
       5. If recurring, re-noise x_{t-1} back to level t.
     f~ is the smoothed objective: log f~(x) = logsumexp_i log f(x + sigma_t * delta_i)
     minus log(eps_bsz), delta_i ~ N(0, I). The schedules for rho_t, mu_t and sigma_t are
@@ -39,8 +44,9 @@ WHAT WE CHANGED, AND WHY
        other arms sample with deterministic DDIM (eta=0), so the default here is eta=0 to
        keep the comparison matched. The eta term is implemented and can be set to 1.0 to
        reproduce their setting.
-    2. Delta_t scaling. The paper's Algorithm 1 divides Delta_t by alpha_t; the released
-       code divides by sqrt(alpha_t). We follow the code.
+    2. Delta_t scaling follows the released code, Delta_t / sqrt(alpha_t). (An earlier
+       version of this header claimed the paper writes alpha_t; that came from a text
+       extraction that dropped radical signs and should not be relied on.)
     3. Objective interface. Their `ImageLabelGuidance` wraps a ResNet that already returns
        the target class's log-probability. We take a plain callable `log_p_fn(x0) -> (B,)`
        so the same sampler serves a pretrained image classifier (with its own input

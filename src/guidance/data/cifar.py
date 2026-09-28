@@ -55,9 +55,12 @@ class HFCifar100(torch.utils.data.Dataset):
 
 
 def make_loaders(root=None, batch_size=batch_size, seed=seed, limit=0):
-    """limit > 0 keeps only that many training images, for quick smoke tests."""
-    torch.manual_seed(seed)
+    """limit > 0 keeps only that many training images, for quick smoke tests.
 
+    `seed` controls only the split, through its own generator below. This function
+    deliberately leaves the global torch RNG alone: a caller that passes a fixed split
+    seed and a varying training seed must get different model initialisations.
+    """
     transform = transforms.Compose([transforms.ToTensor(),  # Pixels in [0, 1]
                                     transforms.Normalize((0.5,) * 3, (0.5,) * 3)])  # Pixels in [-1, 1]
 
