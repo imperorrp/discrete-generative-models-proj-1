@@ -1,0 +1,24 @@
+defaults: base.yaml
+experiment_id: E1
+name: m1_fm_base
+modality: images
+model_family: flow_matching
+
+data: {dataset: cifar100, split: [0.9, 0.1], batch_size: 128}
+
+backbone:                   # byte-identical to m1_diff_base.yaml
+  arch: unet
+  base_channels: 64
+  norm: group
+  groups: 8
+  num_classes: 100
+  cond: bias
+
+flow:
+  path: linear              # x_t = (1-t) x0 + t x1
+  time_dist: uniform
+  solver: euler
+
+epochs: 60
+sampling: {n_steps_sweep: [10, 50]}
+guidance: {mode: fixed, w: 1.0}

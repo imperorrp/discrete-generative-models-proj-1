@@ -1,0 +1,22 @@
+name: dgm
+channels: [pytorch, nvidia, conda-forge]
+dependencies:
+  - python=3.11
+  - pytorch=2.4
+  - pytorch-cuda=12.1
+  - torchvision
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - pyyaml
+  - tqdm
+  - scikit-learn
+  - pip
+  - pip:
+    - torchmetrics          # FID
+    - torch-fidelity        # FID backend
+    - transformers          # frozen CLIP text encoder
+    - pot                   # Wasserstein for the cell-state metrics
+    - scanpy                # Modality 2 preprocessing
+    - anndata

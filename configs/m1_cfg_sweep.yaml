@@ -1,0 +1,12 @@
+defaults: base.yaml
+experiment_id: E3
+name: m1_cfg_sweep
+modality: images
+init_from: results/E2_m1_diff        # frozen; nothing is retrained here
+guidance:
+  mode: fixed
+  w_sweep: [0.0, 1.0, 1.5, 2.0, 3.0, 5.0, 7.5]
+# Both branches are evaluated at EVERY w, including w=0 and w=1, so NFE is 2N
+# across the whole sweep and the rows are compute-matched.
+# The best w on VALIDATION becomes w_star and is written into m1_ours.yaml as
+# controller.w_init, so our method starts exactly at the tuned baseline.

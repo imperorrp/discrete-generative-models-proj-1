@@ -1,0 +1,10 @@
+# E0: tiny end-to-end run. Both families train, guidance changes the samples, a
+# manifest is written. ~2 minutes on CPU. Run before real data and after any refactor.
+defaults: base.yaml
+experiment_id: E0
+name: smoke
+modality: images
+data: {dataset: cifar100, subset: 512, batch_size: 32}
+backbone: {arch: unet, base_channels: 8, num_classes: 100, cond: bias}
+epochs: 1
+eval: {n_samples: 64, seeds: [0]}

@@ -1,0 +1,15 @@
+defaults: base.yaml
+experiment_id: E4
+name: m1_ours
+modality: images
+init_from: results/E2_m1_diff        # base weights FROZEN while the controller trains
+
+controller:
+  text_encoder: clip-vit-base-patch32   # FROZEN. Never in an optimizer.
+  embed_dim: 512
+  time_dim: 32
+  hidden: 256
+  depth: 3
+  w_max: 8.0
+  w_init: 3.0                          # <-- set from the E3 sweep
+guidance: {mode: adaptive}
