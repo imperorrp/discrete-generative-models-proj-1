@@ -39,6 +39,9 @@ WHAT WE CHANGED, AND WHY
        for images and an MLP for cell states, so we adapt nn.Conv2d and nn.Linear.
        Conv adapters are applied as two 1x1 convolutions with per-sample weights via
        grouped convolution, which assumes the base conv preserves spatial size.
+       Because the adapter is 1x1, it is equivalent to adding B A to the CENTRE tap
+       of the 3x3 kernel only; the eight surrounding taps are left unchanged. A full
+       flattened-kernel LoRA would adapt all nine. This is a narrower adapter.
     2. Condition encoder. Their condition is a depth map, encoded by the base
        model's pretrained autoencoder and then a 3-layer MLP to 1024 dims. Our
        condition is already a vector (a frozen text embedding), so we keep the
@@ -52,7 +55,20 @@ WHAT WE CHANGED, AND WHY
        maximum width and each layer slices the prefix it needs. The layer-ID
        embedding is what distinguishes layers.
     5. Scale. They train 3 days on 8x H100 with 251M trainable hypernetwork
-       parameters. Ours is a few hundred thousand. Any comparison must say so.
+       parameters. Ours is about 1.7M for the CIFAR U-Net (roughly 87% of that
+       backbone's 1.9M) and about 1.1M for the cell MLP. Any comparison must say so.
+    6. Scaling of the generated factors. The paper says only that B is zero-
+       initialised. We additionally scale A by 1/sqrt(d_in_max) and the adapter
+       output by alpha/rank (LoRA's own convention, Hu et al. arXiv:2106.09685).
+       Without the first, the raw head output has O(1) entries, the LoRA branch comes
+       out ~50x larger than the frozen branch, and training diverges inside an epoch.
+    7. Timestep scale inside the hypernetwork. Our backbones take t in [0, 1]. Fed
+       straight into a 64-dim sinusoidal embedding whose top frequency is 1, the
+       start and end of the whole trajectory come out 97% cosine-similar -- almost
+       no temporal signal for a method whose defining feature is temporal
+       adaptation. HyperNet therefore multiplies t by `time_scale` (default 1000,
+       i.e. back into DDPM step units) before embedding. The backbone's own
+       timestep convention is untouched.
 
 Run this file directly to execute the self-checks at the bottom.
 """
@@ -117,10 +133,11 @@ class HyperNet(nn.Module):
     """
 
     def __init__(self, n_layers, d_in_max, d_out_max, cond_dim, rank=4,
-                 time_dim=64, id_dim=128, width=256, n_blocks=3):
+                 time_dim=64, id_dim=128, width=256, n_blocks=3, time_scale=1000.0):
         super().__init__()
         self.rank, self.d_in_max, self.d_out_max = rank, d_in_max, d_out_max
         self.time_dim = time_dim
+        self.time_scale = time_scale        # deviation 7 in the module docstring
 
         # App. A: condition goes through a 3-layer MLP (their autoencoder step is
         # dropped -- see deviation 2).
@@ -154,7 +171,8 @@ class HyperNet(nn.Module):
         B (B,L,d_out_max,r)."""
         b, n_layers = t.shape[0], idx.shape[0]
 
-        ctx = torch.cat([timestep_embedding(t, self.time_dim), self.cond_mlp(y)], dim=-1)
+        t_emb = timestep_embedding(t * self.time_scale, self.time_dim)
+        ctx = torch.cat([t_emb, self.cond_mlp(y)], dim=-1)
         ctx = ctx[:, None, :].expand(b, n_layers, -1)
         lay = self.layer_enc(idx, kind)[None].expand(b, n_layers, -1)
 
@@ -254,7 +272,8 @@ class TCLoRA(nn.Module):
     """
 
     def __init__(self, backbone: nn.Module, cond_dim: int, rank=4, alpha=1.0,
-                 time_dim=64, id_dim=128, width=256, n_blocks=3, skip_names=()):
+                 time_dim=64, id_dim=128, width=256, n_blocks=3, time_scale=1000.0,
+                 skip_names=()):
         super().__init__()
         for p in backbone.parameters():
             p.requires_grad_(False)
@@ -267,7 +286,7 @@ class TCLoRA(nn.Module):
         d_out_max = max(m.shape[0] for m in self.adapted)
         d_in_max = max(m.shape[1] for m in self.adapted)
         self.hyper = HyperNet(len(self.adapted), d_in_max, d_out_max, cond_dim,
-                              rank, time_dim, id_dim, width, n_blocks)
+                              rank, time_dim, id_dim, width, n_blocks, time_scale)
 
         self.register_buffer("_idx", torch.arange(len(self.adapted)), persistent=False)
         self.register_buffer(
@@ -336,4 +355,16 @@ if __name__ == "__main__":
             model.hyper.head_b.weight.normal_(0, 0.02)
         assert not torch.allclose(model(x, t, y), model(x, t, torch.randn(4, 16)))
         assert not torch.allclose(model(x, t, y), model(x, torch.rand(4), y))
-        print(f"{name}: output varies with both the condition and the timestep\n")
+        print(f"{name}: output varies with both the condition and the timestep")
+
+        # 5. the ADAPTER itself is time-dependent. The check above does not isolate
+        #    that, because the backbone also reads t. Hold y and layer fixed and compare
+        #    the generated B A at the two ends of the trajectory directly.
+        with torch.no_grad():
+            a0, b0 = model.hyper(torch.zeros(4), y, model._idx, model._kind)
+            a1, b1 = model.hyper(torch.ones(4), y, model._idx, model._kind)
+            ba0 = torch.einsum("blor,blri->bloi", b0, a0)
+            ba1 = torch.einsum("blor,blri->bloi", b1, a1)
+        rel = ((ba0 - ba1).norm() / (ba0.norm() + 1e-8)).item()
+        assert rel > 0.1, f"adapter barely changes with t (rel diff {rel:.3f})"
+        print(f"{name}: B A differs by {rel:.0%} between t=0 and t=1 (adapter is temporal)\n")

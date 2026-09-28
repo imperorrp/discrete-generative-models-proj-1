@@ -26,12 +26,23 @@ src/guidance/   library code
   utils/        seeding, run manifests
 scripts/        command-line entry points
 configs/        one YAML per experiment
-notebooks/      exploratory work
+notebooks/      one notebook per experiment; runs/ holds executed copies with outputs
 tests/          correctness checks
 results/        run outputs
 paper/          LaTeX
 docs/           rubric checklist
 ```
+
+## Status
+
+| | Modality 1 (CIFAR-100) | Modality 2 (cell states) |
+|---|---|---|
+| Diffusion baseline | done | — |
+| Flow-matching baseline | done | — |
+| TC-LoRA | run once (`notebooks/runs/`) | notebook ready, awaiting data |
+| Classifier guidance | — | — |
+| Baseline 3 | — | — |
+| Proposed method | — | — |
 
 ## Usage
 
@@ -57,7 +68,7 @@ paper and its deviations are listed in the module docstring.
 
 | File | Paper | Source used |
 |---|---|---|
-| `tc_lora.py` | Cho, Ohana, Jacobsen, Jothi, Chen, Mao, Can. *TC-LoRA: Temporally Modulated Conditional LoRA for Adaptive Diffusion Control.* NeurIPS 2025 SpaVLE workshop. arXiv:2510.09561 | No code released (checked 2026-09-28). Reimplemented from Eq. 1 and Appendices A–B. Five deviations documented in the file header. |
+| `tc_lora.py` | Cho, Ohana, Jacobsen, Jothi, Chen, Mao, Can. *TC-LoRA: Temporally Modulated Conditional LoRA for Adaptive Diffusion Control.* NeurIPS 2025 SpaVLE workshop. arXiv:2510.09561 | No code released (checked 2026-09-28). Reimplemented from Eq. 1 and Appendices A–B. Seven deviations documented in the file header. |
 
 Pretrained CIFAR-100 classifiers are from
 [chenyaofo/pytorch-cifar-models](https://github.com/chenyaofo/pytorch-cifar-models),
