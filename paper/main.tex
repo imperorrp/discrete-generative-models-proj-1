@@ -1,0 +1,52 @@
+% Build: latexmk -pdf main.tex
+% Requires neurips_2026.sty in this directory.
+% Tables in tables/ are generated, not written by hand.
+
+\documentclass{article}
+
+\usepackage[final]{neurips_2026}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage[capitalize]{cleveref}
+\usepackage{microtype}
+
+\input{macros}
+
+\title{\todo{Title}}
+
+\author{\todo{Authors}}
+
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{sections/00_abstract}
+\end{abstract}
+
+\input{sections/01_intro}
+\input{sections/02_related}
+\input{sections/03_methods}
+\input{sections/04_results}
+\input{sections/05_discussion}
+
+\subsubsection*{Reproducibility Statement}
+\todo{Repository URL, and a statement that every table is generated from run manifests.}
+
+\subsubsection*{Acknowledgments}
+\todo{Compute, and any external code adapted.}
+
+\bibliography{refs}
+\bibliographystyle{plainnat}
+
+\appendix
+\input{sections/A_appendix}
+
+\end{document}

@@ -1,0 +1,30 @@
+# Data and run outputs
+/data/
+/results/*/
+!/results/.gitkeep
+
+# Checkpoints and arrays
+*.pt
+*.ckpt
+*.npy
+*.h5ad
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.fdb_latexmk
+paper/*.fls
+paper/main.pdf
+
+# OS / tooling
+.DS_Store
+wandb/
