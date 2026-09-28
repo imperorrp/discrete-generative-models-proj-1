@@ -44,3 +44,27 @@ Options, roughly in order of how much they change:
 
 Option 1 is the immediate fix for the comparison table. Option 3 is the experiment that
 would make the paper's claim. Options 1 and 3 combine.
+
+## Cross-attention with the label path off: the text is read
+
+Run 1 (`notebooks/runs/text_xattn_cifar_run1.ipynb`, code `429ead4`, single seed). Backbone
+given the null label throughout; a 394k-parameter cross-attention block at the bottleneck,
+reading CLIP token embeddings of the class name, is the only route to the class.
+
+| | val MSE, matched noise |
+|---|---|
+| base, null label | 0.06213 |
+| base, true label (reference) | 0.06196 |
+| cross-attention, correct text | 0.06184 |
+| cross-attention, wrong text (three label offsets, all 0.0624) | 0.06241 |
+
+Wrong text costs 0.92% more loss than correct text, stable across offsets; samples from the
+same noise differ by 20%. FID 78.3 (unconditional) → 75.7 (text). This answers the open
+question above, option 1: remove the label path and a text mechanism has something to
+learn. Text alone recovers what the label gives (0.06184 vs 0.06196), and wrong text is
+worse than no text (0.06241 vs 0.06213), so the block steers rather than merely adds
+capacity.
+
+Caveats: one seed; base still improving at epoch 30; FID against 5000 validation images;
+sampled with the pre-`4fd05e1` DDIM convention. Not yet a head-to-head with TC-LoRA, which
+ran with the label path on. For a mechanism comparison TC-LoRA needs a label-off run.
