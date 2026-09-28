@@ -60,6 +60,18 @@ python tests/test_guidance_math.py
 
 Each run writes `results/<id>/manifest.json`. `make_tables.py` reads only manifests.
 
+## Runs
+
+Executed notebooks are saved with their outputs under `notebooks/runs/`, named
+`<notebook>_run<N>_<commit>.ipynb`. The commit is the version of the code that produced the
+run; it is also printed in the first cell and recorded as `code_version` in the manifest.
+
+To see what changed between two runs:
+
+```bash
+git diff f4e6982 d891abb -- src/ notebooks/tc_lora_cifar.ipynb
+```
+
 ## Credits
 
 Comparison methods implemented in `src/guidance/baselines/`. Where the authors released
