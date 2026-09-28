@@ -23,25 +23,52 @@ SEARCH_PATHS = (
 
 
 def find_root(root=None):
-    """Return (root, download). Reuse a local copy if there is one, else download."""
-    if root is not None:
-        return root, not os.path.isdir(os.path.join(root, "cifar-100-python"))
-    for path in SEARCH_PATHS:
-        if os.path.isdir(os.path.join(path, "cifar-100-python")):
-            print(f"using pre-downloaded CIFAR-100 at {path}")
-            return path, False
-    print("no local CIFAR-100 found; downloading from cs.toronto.edu (slow, ~169MB)")
-    return "./data", True
+    """Return the folder holding cifar-100-python, or None if there isn't one."""
+    for path in ([root] if root is not None else SEARCH_PATHS):
+        if path and os.path.isdir(os.path.join(path, "cifar-100-python")):
+            return path
+    return None
+
+
+class HFCifar100(torch.utils.data.Dataset):
+    """CIFAR-100 from the HuggingFace CDN.
+
+    Same images, same labels, but downloaded from a CDN instead of cs.toronto.edu,
+    so it takes seconds rather than most of an hour. Exposes .targets and .classes
+    so the split code below does not care which source was used.
+    """
+
+    def __init__(self, transform):
+        from datasets import load_dataset
+        ds = load_dataset("uoft-cs/cifar100", split="train")
+        self.ds = ds
+        self.transform = transform
+        self.targets = list(ds["fine_label"])
+        self.classes = ds.features["fine_label"].names
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, i):
+        row = self.ds[i]
+        return self.transform(row["img"].convert("RGB")), row["fine_label"]
 
 
 def make_loaders(root=None, batch_size=batch_size, seed=seed, limit=0):
     """limit > 0 keeps only that many training images, for quick smoke tests."""
     torch.manual_seed(seed)
-    root, download = find_root(root)
 
     transform = transforms.Compose([transforms.ToTensor(),  # Pixels in [0, 1]
                                     transforms.Normalize((0.5,) * 3, (0.5,) * 3)])  # Pixels in [-1, 1]
-    full_train = datasets.CIFAR100(root=root, train=True, download=download, transform=transform)
+
+    found = find_root(root)
+    if found is not None:
+        print(f"using pre-downloaded CIFAR-100 at {found}")
+        full_train = datasets.CIFAR100(root=found, train=True, download=False,
+                                       transform=transform)
+    else:
+        print("no local copy found; fetching from the HuggingFace CDN")
+        full_train = HFCifar100(transform)
 
     # Reserve 50 images per class for validation, using a reproducible split.
     rng = torch.Generator().manual_seed(seed)
