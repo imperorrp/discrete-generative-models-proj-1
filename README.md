@@ -48,3 +48,17 @@ python tests/test_guidance_math.py
 ```
 
 Each run writes `results/<id>/manifest.json`. `make_tables.py` reads only manifests.
+
+## Credits
+
+Comparison methods implemented in `src/guidance/baselines/`. Where the authors released
+code we use it and say so; where they did not, the file is our reimplementation from the
+paper and its deviations are listed in the module docstring.
+
+| File | Paper | Source used |
+|---|---|---|
+| `tc_lora.py` | Cho, Ohana, Jacobsen, Jothi, Chen, Mao, Can. *TC-LoRA: Temporally Modulated Conditional LoRA for Adaptive Diffusion Control.* NeurIPS 2025 SpaVLE workshop. arXiv:2510.09561 | No code released (checked 2026-09-28). Reimplemented from Eq. 1 and Appendices A–B. Five deviations documented in the file header. |
+
+Pretrained CIFAR-100 classifiers are from
+[chenyaofo/pytorch-cifar-models](https://github.com/chenyaofo/pytorch-cifar-models),
+loaded via `torch.hub`, not retrained.
