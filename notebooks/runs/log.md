@@ -36,9 +36,37 @@ Result: wrong text costs +0.92% loss over correct text; paired samples differ by
 FID 78.3 (unconditional base) vs 75.7 (text). Text alone recovers what the label gives
 (0.06184 vs 0.06196). Sampled with the DDIM clipping convention from before `4fd05e1`.
 
+## tc_lora_cifar_run3_1aff1df
+
+Changed since run 2 (`4fd05e1`, `1aff1df`): label path off, so the backbone gets the null
+label and the hypernetwork's text embedding is the only route to the class; the same four-row
+matched validation, wrong-text pass (offsets 1, 37, 73), per-noise-level table and paired
+sampling as the cross-attention notebook; DDIM recomputes the noise from the clipped estimate.
+Base retrained in this session (same seed and split; val 0.0619 at epoch 30).
+
+Result: val 0.0621 (base, null label) / 0.0619 (base, true label) / 0.0617 (TC-LoRA, correct
+text) / 0.0622 (wrong text, all three offsets). Text effect +0.84%; paired samples differ by
+12.4%; adapter magnitude 0.11. FID 80.4 (base) vs 81.6 (TC-LoRA). The adapter reads the text
+and matches the label on the loss, but does not improve FID. Head-to-head with
+`text_xattn_cifar_run1` in `docs/findings.md`.
+
+## tfg_cifar_run1_3c38c51
+
+First run of the TFG arm; sampling only on a base retrained in the session (val 0.0619).
+Both classifiers 99.9% on real validation images, so the input conversion is right. ρ = μ = 0
+reproduced plain DDIM exactly. Their CIFAR-10 settings, unchanged.
+
+Result, 200 samples, scored by VGG-16-BN: accuracy 1.5% unconditional, 4.5% label-conditioned
+base, 3.5% TFG; the wrong-target row scores 5.5% against its target and 1.0% against the
+original class, so guidance does follow its target. Sweep over strength peaks at 4.5% at half
+the default and falls above it. FID 80.8 (unconditional) vs 151.1 (TFG); saturated pixels 8%
+vs 23%. Cost per sample 50 forward + 50 backward denoiser passes and 250 classifier calls,
+12× the wall-clock of plain DDIM. At these settings TFG steers weakly and destroys sample
+quality. The label-conditioned base itself reaches only 4.5%, so the base model is the
+bottleneck. Notebook saved by Colab into `notebooks/run/`; moved here and renamed.
+
 ## Planned
 
-- `tc_lora_cifar` run 3: label path off, same diagnostics as the cross-attention run, so
-  the two mechanisms compare head to head. Reuses `base.pt` from the cross-attention run
-  if uploaded, otherwise retrains it with the same seed.
-- `tfg_cifar` run 1: sampling only, on `base.pt`.
+- `tfg_cifar` run 2: smaller ρ, μ (the sweep peaked at half the defaults), more samples per
+  class for the accuracy rows, FID at the chosen setting.
+- Classifier-free guidance sweep on the base model to fix `w*`, then the controller.

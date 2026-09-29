@@ -66,5 +66,51 @@ worse than no text (0.06241 vs 0.06213), so the block steers rather than merely 
 capacity.
 
 Caveats: one seed; base still improving at epoch 30; FID against 5000 validation images;
-sampled with the pre-`4fd05e1` DDIM convention. Not yet a head-to-head with TC-LoRA, which
-ran with the label path on. For a mechanism comparison TC-LoRA needs a label-off run.
+sampled with the pre-`4fd05e1` DDIM convention.
+
+## TC-LoRA with the label path off: the text is read here too
+
+Run 3 (`notebooks/runs/tc_lora_cifar_run3_1aff1df.ipynb`, single seed), same protocol as the
+cross-attention run. The two text mechanisms side by side, each against its own session's base:
+
+| | TC-LoRA (weights) | cross-attention (activations) |
+|---|---|---|
+| trainable parameters | 1.66M | 0.39M |
+| base, null label | 0.0621 | 0.0621 |
+| base, true label | 0.0619 | 0.0620 |
+| correct text | 0.0617 | 0.0618 |
+| wrong text | 0.0622 | 0.0624 |
+| text effect | +0.84% | +0.92% |
+| paired samples changed by wrong text | 12.4% | 19.9% |
+| FID, base → adapted | 80.4 → 81.6 | 78.3 → 75.7 |
+
+Both read the text: wrong text costs each about 0.9% on the loss, and both recover the loss
+the true label would give. They differ on the samples. Cross-attention lowers FID and moves
+the samples more; TC-LoRA, with four times the parameters, lowers the loss by a hair more and
+raises FID. A weight-space adapter that fits the denoising objective slightly better does not
+give better images here. Base FIDs differ between sessions (80.4 vs 78.3) with the same seed
+and code path, so compare each arm to its own base, not across columns.
+
+## TFG at its CIFAR-10 settings: it steers, weakly, and wrecks quality
+
+Run 1 (`notebooks/runs/tfg_cifar_run1_3c38c51.ipynb`, 200 samples, two per class, scored by a
+classifier the sampler never saw):
+
+| | accuracy | FID (5000 real, 10000 generated) | saturated pixels |
+|---|---|---|---|
+| unconditional base | 1.5% | 80.8 | 8% |
+| label-conditioned base | 4.5% | — | 8% |
+| TFG, ρ = 1, μ = 0.25 | 3.5% | 151.1 | 23% |
+| TFG, wrong target, scored against that target | 5.5% | | 23% |
+
+Guidance follows its target: the wrong-target row scores 5.5% against the class it was pushed
+toward and 1.0% against the original. But the effect is small and the price is large: FID
+nearly doubles and a quarter of the pixels sit at the clamp, where the classifier gradient is
+zero. Over a strength sweep accuracy peaks at 4.5% at half the default and falls above it.
+
+The bottleneck is the base model. Even given the true label it produces images a CIFAR-100
+classifier recognises 4.5% of the time, at FID 80. TFG's settings were tuned for a strong
+CIFAR-10 DDPM; on a 1.9M-parameter model trained for 30 epochs there is little signal for the
+classifier to amplify. Any guidance comparison on this base, including the proposed method,
+inherits this ceiling, and the paper has to say so. Next: smaller ρ, μ; more samples per class
+for the accuracy rows; and a better base if time allows.

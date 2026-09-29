@@ -17,20 +17,17 @@ The cell-state data needs a Hugging Face token: `export HF_TOKEN=...`
 ## Layout
 
 ```
-src/guidance/   library code
-  data/         datasets and splits
-  models/       U-Net (images), MLP (cell states)
-  training/     flow matching and diffusion objectives
-  sampling/     samplers and guidance rules
-  eval/         metrics
-  utils/        seeding, run manifests
-scripts/        command-line entry points
-configs/        one YAML per experiment
-notebooks/      one notebook per experiment; runs/ holds executed copies with outputs
-tests/          correctness checks
-results/        run outputs
+notebooks/      one notebook per method; runs/ holds executed copies with outputs, and log.md
+src/guidance/
+  baselines/    tc_lora.py, cross_attention.py, tfg.py: one file per comparison method,
+                provenance and every deviation from the paper in the header
+  data/         cifar.py: loader and the fixed split
+  models/ training/ sampling/ eval/ utils/
+                planned; shared code is inline in the notebooks for now (docs/todo.md)
+scripts/ configs/ tests/
+                planned; empty until the notebook code moves into src/
+docs/           rubric checklist, findings, to-do
 paper/          LaTeX
-docs/           rubric checklist
 ```
 
 ## Status
@@ -39,26 +36,29 @@ docs/           rubric checklist
 |---|---|---|
 | Diffusion baseline | done | — |
 | Flow-matching baseline | done | — |
-| TC-LoRA | 2 runs (`notebooks/runs/`) | notebook ready, awaiting data |
-| Text conditioning, cross-attention | 1 run | — |
-| Classifier guidance, TFG | notebook ready | — |
+| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | notebook ready, awaiting data |
+| Text conditioning, cross-attention | 1 run, label path off | — |
+| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | — |
 | Proposed method | — | — |
 
-## Usage
+## Notebooks
 
-```bash
-python scripts/prepare_data.py --modality images
-python scripts/train.py        --config configs/m1_diff_base.yaml
-python scripts/sample.py       --config configs/m1_diff_base.yaml --guidance 3.0
-python scripts/evaluate.py     --config configs/m1_diff_base.yaml
-python scripts/make_tables.py  --results results --out paper/tables
-```
+Everything that has run so far ran here. Open a notebook in Colab on a GPU runtime and run it
+top to bottom; the first cell clones this repo and prints the commit it is running.
 
-```bash
-python tests/test_guidance_math.py
-```
+| Notebook | What it does |
+|---|---|
+| `notebooks/tc_lora_cifar.ipynb` | train base → freeze → train hypernetwork → wrong-text diagnostics → samples → FID |
+| `notebooks/text_xattn_cifar.ipynb` | train or load base → attach one cross-attention block → train it → same diagnostics |
+| `notebooks/tfg_cifar.ipynb` | load base → guided sampling → accuracy under a second classifier → strength sweep → FID |
+| `notebooks/tc_lora_cells.ipynb` | TC-LoRA on cell states; synthetic data until the loader lands |
 
-Each run writes `results/<id>/manifest.json`. `make_tables.py` reads only manifests.
+Each opens with the method's equations, a table from each equation to the cell that
+implements it, and what the paper did that the notebook does not. Upload `base.pt` from an
+earlier session and base training is skipped, after a check that it was trained under the same
+split and schedule. CIFAR-100 loads from a local copy if one is found, otherwise from the
+HuggingFace CDN. Every notebook ends by writing a manifest with the commit, the config and
+every reported number.
 
 ## Runs
 
@@ -70,8 +70,32 @@ run; it is also printed in the first cell and recorded as `code_version` in the 
 To see what changed between two runs:
 
 ```bash
-git diff f4e6982 d891abb -- src/ notebooks/tc_lora_cifar.ipynb
+git diff e7448aa 1aff1df -- src/ notebooks/tc_lora_cifar.ipynb
 ```
+
+Results so far. Single seed; 30 base epochs, 15 adapter epochs, 50 DDIM steps. Validation MSE
+is the noise-prediction loss on the held-out split with identical fixed noise for every row;
+"wrong text" is the same pass with every class description shifted to a different class. FID
+is against the 5000-image validation split with 10000 generated images, which biases it
+upward. Base models differ between sessions, so compare each arm to the base in its own run.
+
+| | label path | val MSE | wrong text | FID | run |
+|---|---|---|---|---|---|
+| base, true label | on | 0.0619 | — | 76.6 | `tc_lora_cifar_run2` |
+| TC-LoRA | on | 0.0618 | — | 77.4 | `tc_lora_cifar_run2` |
+| base, null label | off | 0.0621 | — | 78.3 | `text_xattn_cifar_run1` |
+| cross-attention | off | 0.0618 | 0.0624 (+0.92%) | 75.7 | `text_xattn_cifar_run1` |
+| base, null label | off | 0.0621 | — | 80.4 | `tc_lora_cifar_run3` |
+| TC-LoRA | off | 0.0617 | 0.0622 (+0.84%) | 81.6 | `tc_lora_cifar_run3` |
+
+| | condition accuracy | FID | run |
+|---|---|---|---|
+| base, null label | 1.5% | 80.8 | `tfg_cifar_run1` |
+| base, true label | 4.5% | — | `tfg_cifar_run1` |
+| TFG, ρ = 1, μ = 0.25 | 3.5% | 151.1 | `tfg_cifar_run1` |
+
+Accuracy is under a classifier the sampler never used, on 200 samples; chance is 1%. What
+these numbers mean is in `docs/findings.md`.
 
 ## Credits
 
@@ -88,3 +112,5 @@ paper and its deviations are listed in the module docstring.
 Pretrained CIFAR-100 classifiers are from
 [chenyaofo/pytorch-cifar-models](https://github.com/chenyaofo/pytorch-cifar-models),
 loaded via `torch.hub`, not retrained.
+
+MIT License.
