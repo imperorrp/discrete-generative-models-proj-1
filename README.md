@@ -39,9 +39,9 @@ docs/           rubric checklist
 |---|---|---|
 | Diffusion baseline | done | — |
 | Flow-matching baseline | done | — |
-| TC-LoRA | run once (`notebooks/runs/`) | notebook ready, awaiting data |
-| Classifier guidance | — | — |
-| Baseline 3 | — | — |
+| TC-LoRA | 2 runs (`notebooks/runs/`) | notebook ready, awaiting data |
+| Text conditioning, cross-attention | 1 run | — |
+| Classifier guidance, TFG | notebook ready | — |
 | Proposed method | — | — |
 
 ## Usage
@@ -65,6 +65,7 @@ Each run writes `results/<id>/manifest.json`. `make_tables.py` reads only manife
 Executed notebooks are saved with their outputs under `notebooks/runs/`, named
 `<notebook>_run<N>_<commit>.ipynb`. The commit is the version of the code that produced the
 run; it is also printed in the first cell and recorded as `code_version` in the manifest.
+`notebooks/runs/log.md` says what each run was for and what changed before it.
 
 To see what changed between two runs:
 

@@ -8,5 +8,7 @@
 - **Give the sampler a `cond_fn` hook** so classifier guidance is a parameter of
   `ddim_sample`, not a separate sampler.
 - **Null-label switch in every arm**, so each mechanism can be tested as the only route
-  by which the model learns the condition. See `docs/findings.md`.
+  by which the model learns the condition. See `docs/findings.md`. Done for TC-LoRA and
+  cross-attention (`label_path` in each notebook's config). TFG already treats the
+  null-label model as its unconditional base.
 - **Modality 2 loader.** Nothing on the cell-state side runs without it.
