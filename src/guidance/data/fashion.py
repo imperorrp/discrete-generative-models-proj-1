@@ -50,11 +50,14 @@ def find_captions(root):
 def find_root(root=None):
     """Return the folder holding Anno_coarse/ and Eval/list_eval_partition.txt (the unzipped
     'Category and Attribute Prediction Benchmark'), or raise with the paths tried.
-    Tried in order: the argument, FASHION_ROOT, the usual names, then any folder up to two levels
-    under data/ (from the notebook folder or its parents). img/ must sit inside it: unzip the image
-    archive there. captions.csv may sit inside it or up to two folders above."""
+    Tried in order: the argument, FASHION_ROOT, the usual names, any folder next to the notebook
+    (up to two levels), then any folder up to two levels under data/ (from the notebook folder or
+    its parents). img/ must sit inside it: unzip the image archive there. captions.csv may sit
+    inside it or up to two folders above."""
     candidates = [root] if root is not None else [os.environ.get("FASHION_ROOT"), *SEARCH_PATHS]
     if root is None:
+        # any folder next to the notebook, then up to two levels under data/ from here or the parents
+        candidates += sorted(glob.glob("./*/")) + sorted(glob.glob("./*/*/"))
         for up in (".", "..", "../.."):
             candidates += sorted(glob.glob(f"{up}/data/*/")) + sorted(glob.glob(f"{up}/data/*/*/"))
     for path in candidates:
