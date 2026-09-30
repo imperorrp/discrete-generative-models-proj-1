@@ -42,6 +42,11 @@ WHAT WE CHANGED, AND WHY
        Because the adapter is 1x1, it is equivalent to adding B A to the CENTRE tap
        of the 3x3 kernel only; the eight surrounding taps are left unchanged. A full
        flattened-kernel LoRA would adapt all nine. This is a narrower adapter.
+       Which layers: only the trunk, as in the paper. The notebooks pass
+       skip_names=("out", "t_mlp", "label") so the timestep-embedding MLP, the label
+       embedding and the output layer are left unadapted: ten 3x3 convolutions in the
+       U-Net, three linear layers in the cell-state MLP. Runs 1-3 on CIFAR-100 adapted
+       the two timestep-MLP layers as well (12 layers); later runs do not.
     2. Condition encoder. Their condition is a depth map, encoded by the base
        model's pretrained autoencoder and then a 3-layer MLP to 1024 dims. Our
        condition is already a vector (a frozen text embedding), so we keep the
@@ -56,7 +61,7 @@ WHAT WE CHANGED, AND WHY
        embedding is what distinguishes layers.
     5. Scale. They train 3 days on 8x H100 with 251M trainable hypernetwork
        parameters. Ours is about 1.7M for the CIFAR U-Net (roughly 87% of that
-       backbone's 1.9M) and about 1.1M for the cell MLP. Any comparison must say so.
+       backbone's 1.9M) and about 3.1M for the 1024-wide cell MLP (3.5M). Any comparison must say so.
     6. Scaling of the generated factors. The paper says only that B is zero-
        initialised. We additionally scale A by 1/sqrt(d_in_max) and the adapter
        output by alpha/rank (LoRA's own convention, Hu et al. arXiv:2106.09685).
