@@ -65,6 +65,20 @@ vs 23%. Cost per sample 50 forward + 50 backward denoiser passes and 250 classif
 quality. The label-conditioned base itself reaches only 4.5%, so the base model is the
 bottleneck. Notebook saved by Colab into `notebooks/run/`; moved here and renamed.
 
+## DeepFashion full run 1 (`b47cf76`, manifests in `runs/fashion/`)
+
+`cfg_fashion`: full data (209,222 images), 50 epochs, best at epoch 48 (val MSE 0.0296, still
+falling), 68 min on an RTX 5090. 2,048 generated vs 2,048 validation images, 50 ancestral steps,
+scorer ResNet-18 at 0.469 top-1 on real images. w = 0 / 1 / 3: FID 53.2 / 46.9 / 34.0, top-1
+3.1% / 14.2% / 43.3%, precision 0.85 / 0.85 / 0.87, recall 0.49 / 0.61 / 0.59. Valid.
+
+`tc_lora_fashion`, `text_xattn_fashion`, `tfg_fashion`: **not valid.** They loaded a `base.pt`
+left in the folder by the quick run (10k images, 8 epochs; val MSE 0.047, unconditional FID 224,
+recall 0.015) instead of the shared base, because `base.pt` was checked first and its setup check
+did not include the training-set size. Fixed in `8ad38e5`: the shared checkpoint always wins and
+`n_train` is part of the check. Re-run the three after deleting `base.pt`, `tclora.pt` and
+`xattn.pt` from the notebook folder.
+
 ## Planned
 
 - `tfg_cifar` run 2: smaller ρ, μ (the sweep peaked at half the defaults), more samples per
