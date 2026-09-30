@@ -53,6 +53,11 @@ WHAT WE CHANGED, AND WHY
        CFG (scale 4.5). We sample purely conditionally, so this arm measures what the
        conditioning mechanism does on its own, without a guidance rule layered on top.
        That is a choice for this comparison, not their practice.
+    7. Vector backbones. For the cell-state MLP there is no token axis: the hidden vector
+       (B, C) is treated as ONE query token attending over the text tokens, and the
+       block's output is added back to that vector. The softmax is over the text tokens,
+       so it still selects between words; only the query side is degenerate. Attached
+       after the MLP's input projection (`attach="inp"`, C = 1024).
 
 BOOKKEEPING NOTE
     TextConditioned inserts the adapter INSIDE the backbone (setattr on the named stage),
@@ -99,9 +104,12 @@ class TextCrossAttention(nn.Module):
 
     def forward(self, x, text, mask=None):
         is_map = x.dim() == 4
+        is_vec = x.dim() == 2
         if is_map:
             b, c, h, w = x.shape
             tokens = x.flatten(2).transpose(1, 2)            # (B, HW, C)
+        elif is_vec:
+            tokens = x[:, None, :]                            # (B, 1, C): one query token (deviation 7)
         else:
             tokens = x
         b, n, c = tokens.shape
@@ -121,6 +129,8 @@ class TextCrossAttention(nn.Module):
         out = tokens + out                                    # PixArtBlock: x + cross_attn(x, y)
         if is_map:
             out = out.transpose(1, 2).reshape(b, c, h, w)
+        elif is_vec:
+            out = out[:, 0, :]
         return out
 
 

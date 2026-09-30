@@ -11,11 +11,11 @@
   by which the model learns the condition. See `docs/findings.md`. Done for TC-LoRA and
   cross-attention (`label_path` in each notebook's config). TFG already treats the
   null-label model as its unconditional base.
-- **Modality 2.** Loader done (`src/guidance/data/cells.py`, on the team's `TahoePCs`). Next:
-  run `notebooks/tahoe/tc_lora_cells.ipynb` on Colab; then cross-attention and TFG on cells
-  (TFG's objective there is the soft k-means cluster from `condition="cluster"`); a control
-  metric that needs no trained classifier, such as agreement of the generated mean shift from
-  DMSO with the real one per condition.
+- **Modality 2.** Loader and all three comparison notebooks exist under `notebooks/tahoe/`;
+  none has run on a GPU yet. TFG's objective is a global soft k-means (K = 10) fitted in the
+  notebook, scored by a k-nearest-neighbour vote. Still wanted: a control metric that needs
+  no classifier at all, such as agreement of the generated mean shift from DMSO with the real
+  one per drug (the loader exposes `dmso_reference`).
 - **Modality 1 dataset.** The DeepFashion notebook in `notebooks/fashion/` uses a larger U-Net
   with attention and mixed precision. Bring it to the course-style U-Net and the shared
   protocol (fixed-noise validation, manifest, seeds) before the comparison arms move to it.

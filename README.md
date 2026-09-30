@@ -43,9 +43,9 @@ paper/          LaTeX
 |---|---|---|
 | Diffusion baseline | done | — |
 | Flow-matching baseline | done | — |
-| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | loader and notebook ready, not yet run |
-| Text conditioning, cross-attention | 1 run, label path off | — |
-| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | — |
+| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | notebook ready, not yet run |
+| Text conditioning, cross-attention | 1 run, label path off | notebook ready, not yet run |
+| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | notebook ready (k-means objective), not yet run |
 | Proposed method | — | — |
 
 ## Notebooks
@@ -59,6 +59,8 @@ top to bottom; the first cell clones this repo and prints the commit it is runni
 | `notebooks/cifar/text_xattn_cifar.ipynb` | train or load base → attach one cross-attention block → train it → same diagnostics |
 | `notebooks/cifar/tfg_cifar.ipynb` | load base → guided sampling → accuracy under a second classifier → strength sweep → FID |
 | `notebooks/tahoe/tc_lora_cells.ipynb` | TC-LoRA on cell states: train base MLP → freeze → train hypernetwork → wrong-text diagnostics → per-condition MMD, energy distance, variance ratio |
+| `notebooks/tahoe/text_xattn_cells.ipynb` | cross-attention on cell states: one block after the MLP's input projection, the hidden vector as a single query token; same diagnostics and metrics |
+| `notebooks/tahoe/tfg_cells.ipynb` | TFG on cell states: soft k-means classifier on expression clusters as the objective, a k-nearest-neighbour vote as the independent scorer; strength sweep, per-cluster metrics |
 | `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb`, `Tahoe_dataloader_example.ipynb` | build the Tahoe subset: download, HVGs and PCA on the training split, held-out line-drug pairs; the loader the package reuses |
 | `notebooks/fashion/CIS6720_Proj1_DiffusionCode_Modality_1.ipynb` | DeepFashion 64×64 class-conditional diffusion with classifier-free guidance and FID; being aligned with the protocol above |
 
@@ -66,8 +68,17 @@ Each opens with the method's equations, a table from each equation to the cell t
 implements it, and what the paper did that the notebook does not. Upload `base.pt` from an
 earlier session and base training is skipped, after a check that it was trained under the same
 split and schedule. CIFAR-100 loads from a local copy if one is found, otherwise from the
-HuggingFace CDN. Every notebook ends by writing a manifest with the commit, the config and
-every reported number.
+HuggingFace CDN. Every notebook ends by writing a manifest with the commit, the config, the
+hardware, training time and every reported number.
+
+Any config field can be set from the environment without editing a cell, for headless runs
+or a different GPU: `CFG_BASE_EPOCHS=1 CFG_LIMIT=5000`, `CFG_LABEL_PATH=true`,
+`CFG_SWEEP=0,0.5,1`. `N_FID=10000` turns on FID in the image notebooks. Headless:
+
+```bash
+CFG_BASE_EPOCHS=8 jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=-1 \
+  notebooks/tahoe/tc_lora_cells.ipynb --output-dir notebooks/runs --output tc_lora_cells_run1_$(git rev-parse --short HEAD).ipynb
+```
 
 ## Runs
 
