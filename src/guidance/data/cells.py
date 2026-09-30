@@ -26,13 +26,17 @@ SEED = 42
 SUBSET = "25lines_100drugs_pca_data_v2/content/data/Tahoe/subsets/cfg_25lines_100drugs"
 PCA_REL = "splits/pair_seed42_val20_raw4/pca50_hvg2000"
 
-# Places the pca50_hvg2000 folder might be. Local checkout first, then Colab after
-# `unzip 25lines_100drugs_pca_data_v2.zip`, then Colab with Drive mounted.
-SEARCH_PATHS = (
-    f"./data/{SUBSET}/{PCA_REL}", f"../data/{SUBSET}/{PCA_REL}", f"../../data/{SUBSET}/{PCA_REL}",
-    f"/content/content/data/Tahoe/subsets/cfg_25lines_100drugs/{PCA_REL}",
-    f"/content/data/Tahoe/subsets/cfg_25lines_100drugs/{PCA_REL}",
-    f"/content/drive/MyDrive/data/Tahoe/subsets/cfg_25lines_100drugs/{PCA_REL}",
+# Places the pca50_hvg2000 folder might be, relative to the notebook's folder or its parents:
+# the zip unpacked as is (content/data/Tahoe/...), the zip unpacked into a folder named after it
+# (data/25lines_100drugs_pca_data_v2/content/data/Tahoe/...), or just the Tahoe tree
+# (data/Tahoe/...). Then Colab session storage and Drive. TAHOE_PCA_DIR overrides all of it.
+_TAHOE = f"Tahoe/subsets/cfg_25lines_100drugs/{PCA_REL}"
+SEARCH_PATHS = tuple(
+    f"{up}/{layout}" for up in (".", "..", "../..")
+    for layout in (f"content/data/{_TAHOE}", f"data/{SUBSET}/{PCA_REL}", f"data/{_TAHOE}", f"{SUBSET}/{PCA_REL}")
+) + (
+    f"/content/content/data/{_TAHOE}", f"/content/data/{_TAHOE}",
+    f"/content/drive/MyDrive/content/data/{_TAHOE}", f"/content/drive/MyDrive/data/{_TAHOE}",
     f"/content/drive/MyDrive/{SUBSET}/{PCA_REL}",
 )
 
