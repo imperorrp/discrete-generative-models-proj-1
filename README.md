@@ -103,7 +103,10 @@ hardware, training time and every reported number.
 Any config field can be set from the environment without editing a cell, for headless runs
 or a different GPU: `CFG_BASE_EPOCHS=1 CFG_LIMIT=5000`, `CFG_LABEL_PATH=true`,
 `CFG_SWEEP=0,0.5,1`. `N_FID=10000` turns on FID in the CIFAR notebooks; the DeepFashion
-notebooks always evaluate `CFG_N_EVAL` images (2048 by default). Data and checkpoint locations:
+notebooks always evaluate `CFG_N_EVAL` images (2048 by default). `CFG_QUICK=1` (or
+`%env CFG_QUICK=1` in a cell above the config) runs the DeepFashion notebooks on a class-balanced
+10k of the 209k training images with 8 base and 3 adapter epochs and 256 evaluation images: it
+shows that everything works in well under an hour, and its numbers are not results. Data and checkpoint locations:
 `TAHOE_PCA_DIR`, `FASHION_ROOT`, `CELL_BASE_CKPT`, `FASHION_BASE_CKPT`, `FASHION_CKPT_DIR`.
 Headless:
 

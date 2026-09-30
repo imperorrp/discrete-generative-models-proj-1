@@ -174,10 +174,10 @@ def make_loaders(root=None, image_size=64, batch_size=64, val_limit=2048, seed=4
     root = find_root(root)
     captions = load_captions(root)
     num_workers = int(os.environ.get("FASHION_NUM_WORKERS", num_workers))   # 0 on Windows or in a script
-    train_ds = FashionDataset(root, "train", captions, image_size, flip=flip, seed=seed)
+    # limit > 0: FashionDataset's own class-balanced, seeded subset (the same rule the teammates'
+    # script applies to --max-train-images), so a small run still sees every class.
+    train_ds = FashionDataset(root, "train", captions, image_size, flip=flip, limit=limit, seed=seed)
     val_ds = FashionDataset(root, "val", captions, image_size, limit=val_limit, seed=seed)
-    if limit and limit < len(train_ds.records):
-        train_ds.records = train_ds.records[:limit]
 
     pin = torch.cuda.is_available()
     g = torch.Generator().manual_seed(seed)
