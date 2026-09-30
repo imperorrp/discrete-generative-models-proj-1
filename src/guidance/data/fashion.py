@@ -47,26 +47,76 @@ def find_captions(root):
     raise FileNotFoundError(f"no captions.csv in {root}, its parents, or FASHION_CAPTIONS")
 
 
-def find_root(root=None):
-    """Return the folder holding Anno_coarse/ and Eval/list_eval_partition.txt (the unzipped
-    'Category and Attribute Prediction Benchmark'), or raise with the paths tried.
-    Tried in order: the argument, FASHION_ROOT, the usual names, any folder next to the notebook
-    (up to two levels), then any folder up to two levels under data/ (from the notebook folder or
-    its parents). img/ must sit inside it: unzip the image archive there. captions.csv may sit
-    inside it or up to two folders above."""
+ZIP_DIRS = (".", "./data", "..", "../data", "../..", "../../data")
+
+
+def _candidates(root):
     candidates = [root] if root is not None else [os.environ.get("FASHION_ROOT"), *SEARCH_PATHS]
     if root is None:
         # any folder next to the notebook, then up to two levels under data/ from here or the parents
         candidates += sorted(glob.glob("./*/")) + sorted(glob.glob("./*/*/"))
         for up in (".", "..", "../.."):
             candidates += sorted(glob.glob(f"{up}/data/*/")) + sorted(glob.glob(f"{up}/data/*/*/"))
-    for path in candidates:
-        if _is_root(path):
-            if not os.path.isdir(os.path.join(path, "img")):
-                raise FileNotFoundError(f"{path} has the annotations but no img/ folder: unzip the image archive into it")
-            find_captions(path)
-            return Path(path)
-    raise FileNotFoundError("no DeepFashion folder found; tried " + ", ".join(str(c) for c in candidates if c))
+    return [c for c in candidates if c]
+
+
+def _find_zips():
+    """(annotation zip, image zip) found next to the notebook or under data/, either may be None.
+    The annotation zip contains Eval/list_eval_partition.txt; the image zip's entries live under img/."""
+    import zipfile
+    anno = imgs = None
+    for d in ZIP_DIRS:
+        for z in sorted(glob.glob(f"{d}/*.zip")):
+            try:
+                names = zipfile.ZipFile(z).namelist()
+            except zipfile.BadZipFile:
+                continue
+            if anno is None and any(n.endswith("Eval/list_eval_partition.txt") for n in names):
+                anno = z
+            elif imgs is None and names and all(n.startswith("img/") for n in names[:50]):
+                imgs = z
+    return anno, imgs
+
+
+def _unzip(path, dest, log):
+    import time, zipfile
+    with zipfile.ZipFile(path) as z:
+        names = z.namelist()
+        log(f"unzipping {path} ({len(names):,} entries) into {dest} ...")
+        t0 = time.time()
+        for i, n in enumerate(names, 1):
+            z.extract(n, dest)
+            if i % 50_000 == 0:
+                log(f"  {i:,} / {len(names):,} ({time.time() - t0:.0f}s)")
+        log(f"  done in {time.time() - t0:.0f}s")
+
+
+def find_root(root=None, log=print):
+    """Return the folder holding Anno_coarse/, Eval/list_eval_partition.txt and img/ (the unzipped
+    'Category and Attribute Prediction Benchmark'), or raise with the paths tried.
+
+    Tried in order: the argument, FASHION_ROOT, the usual names, any folder next to the notebook
+    (up to two levels), then any folder up to two levels under data/ (from the notebook folder or
+    its parents). If nothing is unpacked yet but the zips are next to the notebook or under data/,
+    they are unzipped here: the annotation zip into ./DeepFashion/, the image zip into the folder
+    that holds the annotations (several minutes, once). captions.csv may sit inside the folder or
+    up to two folders above."""
+    found = next((Path(p) for p in _candidates(root) if _is_root(p)), None)
+    if found is None and root is None:
+        anno, _ = _find_zips()
+        if anno is not None:
+            _unzip(anno, Path(anno).parent / "DeepFashion", log)
+            found = next((Path(p) for p in _candidates(None) if _is_root(p)), None)
+    if found is None:
+        raise FileNotFoundError("no DeepFashion folder (or zip) found; tried " + ", ".join(_candidates(root)))
+    if not (found / "img").is_dir():
+        _, imgs = _find_zips()
+        if imgs is None:
+            raise FileNotFoundError(f"{found} has the annotations but no img/ folder and no image zip is nearby: "
+                                    f"unzip the image archive into it")
+        _unzip(imgs, found, log)
+    find_captions(found)
+    return found
 
 
 # ---- the provided loader, as in the Modality-1 notebooks ---------------------------------

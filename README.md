@@ -17,13 +17,13 @@ pip install -e .
 Cell-state data: unzip `25lines_100drugs_pca_data_v2.zip` into `data/`; the loader in
 `src/guidance/data/cells.py` finds it there, on Colab, or on Drive. Rebuilding that folder from
 Tahoe-100M is `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb` and needs a Hugging Face
-token in the environment (`HF_TOKEN`), never in a file. Image data: unzip the DeepFashion
-"Category and Attribute Prediction Benchmark" archive into `data/`, unzip the image archive
-(`img/...`) inside that folder, and put `captions.csv` in the folder or next to it;
-`src/guidance/data/fashion.py` finds any folder up to two levels under `data/` that holds
-`Anno_coarse/` and `Eval/`, or the one `FASHION_ROOT` points to. A fine-tuned scorer from the
-flow-matching base notebook (`fashion_resnet18_classifier.pt`) dropped into `checkpoints/` or
-`data/` is reused instead of fine-tuning again.
+token in the environment (`HF_TOKEN`), never in a file. Image data: put the DeepFashion
+"Category and Attribute Prediction Benchmark" zip, the image zip and `captions.csv` next to the
+notebooks or into `data/`; `src/guidance/data/fashion.py` unzips them on first use and afterwards
+finds the unpacked folder (`Anno_coarse/`, `Eval/`, `img/`) in the same places, or wherever
+`FASHION_ROOT` points. A fine-tuned scorer from the flow-matching base notebook
+(`fashion_resnet18_classifier.pt`) dropped into `checkpoints/` or `data/` is reused instead of
+fine-tuning again.
 
 ## Layout
 
