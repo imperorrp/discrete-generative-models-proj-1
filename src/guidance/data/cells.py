@@ -206,11 +206,23 @@ def make_loaders(root=None, batch_size=256, seed=SEED, condition="drug", dose=No
     val_loader = DataLoader(_Pairs(x_va, c_va), batch_size=batch_size, shuffle=False, num_workers=0)
 
     model = load_pca_model(pca_dir)
+    # (drug_id, line_id) per condition id, so a backbone with separate drug and line embeddings
+    # can be driven by one cond_id. Null ids are n_drugs and n_lines. For "drug" the line is null.
+    n_drugs, n_lines = len(train_ds.drug_names), len(train_ds.line_names)
+    if condition == "pair":
+        cond_ids_table = torch.tensor([[d, l] for l, d in pairs], dtype=torch.long)
+    elif condition == "drug":
+        cond_ids_table = torch.stack([torch.arange(n_cond), torch.full((n_cond,), n_lines)], 1)
+    else:
+        cond_ids_table = torch.full((n_cond, 2), -1, dtype=torch.long)   # clusters map to no (drug, line)
+
     meta = {
         "n_conditions": n_cond,
         "shape": (x_tr.shape[1],),
         "cond_text": cond_text,
         "condition": condition,
+        "n_drugs": n_drugs, "n_lines": n_lines,
+        "cond_ids_table": cond_ids_table,        # (n_conditions, 2): drug_id, line_id
         "dose_filter": dose,
         "n_train": int(len(x_tr)), "n_val": int(len(x_va)),
         "drug_names": train_ds.drug_names.tolist(),
@@ -246,6 +258,9 @@ if __name__ == "__main__":
     assert not treated_overlap
     xs = tr.dataset.x
     print("x per-dim std (first 5):", xs[:, :5].std(0).numpy().round(2), "| overall rms", round(float(xs.pow(2).mean().sqrt()), 3))
+    tab = meta["cond_ids_table"]
+    assert tab.shape == (meta["n_conditions"], 2) and int(tab[:, 0].max()) < meta["n_drugs"] and int(tab[:, 1].max()) < meta["n_lines"]
+    print("cond_ids_table", tuple(tab.shape), "| treated pairs in table:", int((tab[:, 0] != 0).sum()))
     tr, va, meta = make_loaders(condition="drug", dose=5.0, limit=1000)
     print("dose 5 uM + controls, limit 1000: train", meta["n_train"], "val", meta["n_val"])
     print("ok")

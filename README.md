@@ -45,7 +45,7 @@ paper/          LaTeX
 | Flow-matching baseline | done | — |
 | TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | notebook ready, not yet run |
 | Text conditioning, cross-attention | 1 run, label path off | notebook ready, not yet run |
-| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | notebook ready (k-means objective), not yet run |
+| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | notebook ready (per-drug Gaussian classifier), not yet run |
 | Proposed method | — | — |
 
 ## Notebooks
@@ -58,9 +58,10 @@ top to bottom; the first cell clones this repo and prints the commit it is runni
 | `notebooks/cifar/tc_lora_cifar.ipynb` | train base → freeze → train hypernetwork → wrong-text diagnostics → samples → FID |
 | `notebooks/cifar/text_xattn_cifar.ipynb` | train or load base → attach one cross-attention block → train it → same diagnostics |
 | `notebooks/cifar/tfg_cifar.ipynb` | load base → guided sampling → accuracy under a second classifier → strength sweep → FID |
+| `notebooks/tahoe/cfg_cells.ipynb` | base diffusion model for cell states with classifier-free guidance, from `Tahoe_PCA_Diffusion_CFG.ipynb` (kept as received in the same folder); adds held-out-pair evaluation: MMD, energy distance, variance ratio per guidance strength |
 | `notebooks/tahoe/tc_lora_cells.ipynb` | TC-LoRA on cell states: train base MLP → freeze → train hypernetwork → wrong-text diagnostics → per-condition MMD, energy distance, variance ratio |
 | `notebooks/tahoe/text_xattn_cells.ipynb` | cross-attention on cell states: one block after the MLP's input projection, the hidden vector as a single query token; same diagnostics and metrics |
-| `notebooks/tahoe/tfg_cells.ipynb` | TFG on cell states: soft k-means classifier on expression clusters as the objective, a k-nearest-neighbour vote as the independent scorer; strength sweep, per-cluster metrics |
+| `notebooks/tahoe/tfg_cells.ipynb` | TFG on cell states: a per-drug Gaussian classifier fitted from the training cells as the objective, a k-nearest-neighbour vote as the independent scorer; strength sweep, per-drug metrics |
 | `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb`, `Tahoe_dataloader_example.ipynb` | build the Tahoe subset: download, HVGs and PCA on the training split, held-out line-drug pairs; the loader the package reuses |
 | `notebooks/fashion/CIS6720_Proj1_DiffusionCode_Modality_1.ipynb` | DeepFashion 64×64 class-conditional diffusion with classifier-free guidance and FID; being aligned with the protocol above |
 

@@ -12,10 +12,11 @@
   cross-attention (`label_path` in each notebook's config). TFG already treats the
   null-label model as its unconditional base.
 - **Modality 2.** Loader and all three comparison notebooks exist under `notebooks/tahoe/`;
-  none has run on a GPU yet. TFG's objective is a global soft k-means (K = 10) fitted in the
-  notebook, scored by a k-nearest-neighbour vote. Still wanted: a control metric that needs
-  no classifier at all, such as agreement of the generated mean shift from DMSO with the real
-  one per drug (the loader exposes `dmso_reference`).
+  none has run on a GPU yet. TFG's objective is a per-drug Gaussian classifier (LDA) fitted by
+  moments in the notebook, scored by a k-nearest-neighbour vote on true drug labels; both
+  scorers' accuracy on real validation cells is the ceiling and is printed. Still wanted: a
+  control metric that needs no classifier at all, such as agreement of the generated mean
+  shift from DMSO with the real one per drug (the loader exposes `dmso_reference`).
 - **Modality 1 dataset.** The DeepFashion notebook in `notebooks/fashion/` uses a larger U-Net
   with attention and mixed precision. Bring it to the course-style U-Net and the shared
   protocol (fixed-noise validation, manifest, seeds) before the comparison arms move to it.
