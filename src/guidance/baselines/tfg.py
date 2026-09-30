@@ -60,6 +60,20 @@ WHAT WE CHANGED, AND WHY
        through it (for Delta_t) plus N_iter objective forward/backward passes. We count
        denoiser and objective evaluations separately and report both, because our own
        method's pitch is a single cheap forward pass.
+    7. The clamp can be per dimension. Their `clip_sample` is the scalar [-1, 1] of images.
+       `clip_x0` also accepts a tensor of per-dimension bounds (the training range of
+       standardised cell states), or a (lo, hi) pair of tensors. This matters more than it
+       looks: x_{0|t} = (x_t - sqrt(1 - abar_t) eps) / sqrt(abar_t) divides by sqrt(abar_t),
+       which is ~1e-4 at the first step of a cosine schedule (2e-9 under diffusers'
+       squaredcos_cap_v2), so any error in eps, and any error in its Jacobian that Delta_t
+       goes through, is amplified by 1e4 or more there. On images the [-1, 1] clamp
+       saturates and zeroes that gradient; with no clamp at all (as we first ran on cells)
+       the guided samples left the data range by a factor of 300 in standard deviation.
+    8. Noise bookkeeping. With rho = mu = 0 the sampler draws exactly the noise plain
+       DDIM/DDPM draws from `generator`, so a guidance-off run is bit-identical to the
+       unguided sampler at any eta: the smoothing noise is only drawn when an objective
+       is evaluated, and the recurrence re-noising is not drawn on the last recurrence
+       pass (their loop draws it and discards it). Neither changes the guided update.
 
 Run this file directly to execute the self-checks at the bottom.
 """
@@ -84,7 +98,10 @@ class TFGConfig:
     rho_schedule: str = "increase"       # increase | decrease | constant
     mu_schedule: str = "increase"
     sigma_schedule: str = "decrease"     # decrease | constant
-    clip_x0: float = 1.0                 # clamp predicted x0 to [-clip, clip]; 0 disables
+    # Clamp of the predicted x0. A float c clamps to [-c, c] (0 or None disables); a tensor b
+    # of shape (*data_shape) clamps to [-b, b] per dimension; a (lo, hi) pair of tensors clamps
+    # to [lo, hi] per dimension. Deviation 7 in the header.
+    clip_x0: object = 1.0
     eta: float = 0.0                     # 0 = deterministic DDIM; their script used 1.0
 
 
@@ -110,6 +127,7 @@ class TFG:
         self.cfg = cfg or TFGConfig()
         self.K = abar.shape[0]
         self.stats = TFGStats()
+        self._bounds = self.clamp_bounds(self.cfg.clip_x0, device=abar.device)
 
     # -- schedules, verbatim from methods/tfg.py ------------------------------------------
     @staticmethod
@@ -139,11 +157,34 @@ class TFG:
         self.stats.objective_evals += 1
         return torch.logsumexp(lp, dim=0) - math.log(mc_eps.shape[0])
 
+    @staticmethod
+    def clamp_bounds(clip_x0, device=None):
+        """Normalise `clip_x0` to (lo, hi) tensors, or None when clamping is off.
+        Shared with the notebooks' plain sampler so both sides clamp identically."""
+        if clip_x0 is None:
+            return None
+        if isinstance(clip_x0, (tuple, list)):
+            lo, hi = (torch.as_tensor(b, dtype=torch.float32, device=device) for b in clip_x0)
+            return lo, hi
+        if isinstance(clip_x0, torch.Tensor):
+            hi = clip_x0.to(device=device or clip_x0.device, dtype=torch.float32).abs()
+            return -hi, hi
+        if float(clip_x0) == 0.0:
+            return None
+        c = float(clip_x0)
+        return torch.tensor(-c, device=device), torch.tensor(c, device=device)
+
+    @staticmethod
+    def clamp_x0(x0, bounds):
+        """Clamp x0 to (lo, hi); bounds broadcast over the batch. None leaves x0 as is."""
+        if bounds is None:
+            return x0
+        lo, hi = bounds
+        return torch.maximum(torch.minimum(x0, hi.to(x0.device)), lo.to(x0.device))
+
     def _predict_x0(self, x, eps, ap):
         x0 = (x - (1 - ap).sqrt() * eps) / ap.sqrt()
-        if self.cfg.clip_x0:
-            x0 = x0.clamp(-self.cfg.clip_x0, self.cfg.clip_x0)
-        return x0
+        return self.clamp_x0(x0, self._bounds)
 
     @torch.no_grad()
     def sample(self, n, shape, steps, x_init=None, generator=None, n_snapshots=0):
@@ -167,9 +208,12 @@ class TFG:
             rho = self._strength(c.rho, c.rho_schedule, i, ap_all, ap_prev_all)
             mu = self._strength(c.mu, c.mu_schedule, i, ap_all, ap_prev_all)
             std = self._std(i, ap_all)
+            guided = float(rho) != 0.0 or (float(mu) != 0.0 and c.iter_steps > 0)
 
-            for _ in range(c.recur_steps):
-                mc_eps = (torch.zeros((1, *x.shape), device=dev) if float(std) == 0.0 else
+            for r in range(c.recur_steps):
+                # Smoothing noise for log f~, drawn only when an objective will be evaluated,
+                # so that rho = mu = 0 consumes exactly the noise plain DDIM/DDPM consumes.
+                mc_eps = (torch.zeros((1, *x.shape), device=dev) if not guided or float(std) == 0.0 else
                           torch.randn((c.eps_bsz, *x.shape), device=dev, generator=generator) * std)
 
                 # Variance guidance: gradient of the smoothed objective w.r.t. x_t,
@@ -210,9 +254,12 @@ class TFG:
                 alpha_t = ap / ap_prev
                 x_prev = x_prev + delta_t / alpha_t.sqrt() + delta_0 * ap_prev.sqrt()
 
-                # Recurrence: re-noise x_{t-1} to level t and go round again.
-                x = (alpha_t.sqrt() * x_prev
-                     + (1 - alpha_t).sqrt() * torch.randn(x.shape, device=dev, generator=generator))
+                # Recurrence: re-noise x_{t-1} to level t and go round again. Not on the last
+                # pass: that draw would be discarded and would only desynchronise `generator`
+                # from the plain sampler.
+                if r + 1 < c.recur_steps:
+                    x = (alpha_t.sqrt() * x_prev
+                         + (1 - alpha_t).sqrt() * torch.randn(x.shape, device=dev, generator=generator))
 
             x = x_prev.detach()
             if n_snapshots and i in keep:
@@ -296,3 +343,41 @@ if __name__ == "__main__":
     rhos = torch.stack([tf._strength(1.0, "increase", i, ap, app) for i in range(50)])
     assert abs(rhos.mean().item() - 1.0) < 1e-5
     print(f"rho schedule: mean {rhos.mean():.4f}, first {rhos[0]:.3f}, last {rhos[-1]:.3f} ('increase')")
+
+    # 7. rho = mu = 0 with eta = 1 draws exactly the noise plain ancestral sampling draws, so
+    #    the two agree bit for bit given identically seeded generators (deviation 8).
+    def plain_ancestral(x, steps, gen):
+        idx = torch.linspace(K - 1, 0, steps).long()
+        for i, k in enumerate(idx):
+            a = abar[k]; a_prev = abar[idx[i + 1]] if i + 1 < steps else torch.tensor(1.0)
+            t = (k.float() / K).repeat(x.shape[0])
+            eps = eps_fn(x, t)
+            x0 = (x - (1 - a).sqrt() * eps) / a.sqrt()
+            sig = ((1 - a_prev) / (1 - a) * (1 - a / a_prev)).sqrt()
+            x = a_prev.sqrt() * x0 + (1 - a_prev - sig ** 2).clamp(min=0).sqrt() * eps
+            x = x + sig * torch.randn(x.shape, generator=gen)
+        return x
+    off1 = TFG(eps_fn, log_p_fn, abar, TFGConfig(rho=0, mu=0, iter_steps=0, clip_x0=0, eta=1.0))
+    a = off1.sample(n, (D,), 20, x_init=x_init, generator=torch.Generator().manual_seed(7))
+    b = plain_ancestral(x_init.clone(), 20, torch.Generator().manual_seed(7))
+    assert torch.allclose(a, b, atol=1e-5), (a - b).abs().max().item()
+    print("rho = mu = 0 at eta = 1 reproduces plain ancestral sampling with the same generator")
+
+    # 8. Per-dimension clamp (deviation 7): a tensor of bounds clamps each dimension to its own
+    #    range, a (lo, hi) pair to an asymmetric one, and a saturated dimension gets no gradient.
+    bounds = torch.full((D,), 0.5)
+    tfc = TFG(eps_fn, log_p_fn, abar, TFGConfig(clip_x0=bounds))
+    x0 = tfc._predict_x0(torch.randn(n, D) * 10, torch.zeros(n, D), abar[0])
+    assert x0.abs().max() <= 0.5 + 1e-6
+    lo, hi = torch.full((D,), -0.25), torch.full((D,), 1.0)
+    x0 = TFG(eps_fn, log_p_fn, abar, TFGConfig(clip_x0=(lo, hi)))._predict_x0(torch.randn(n, D) * 10, torch.zeros(n, D), abar[0])
+    assert x0.min() >= -0.25 - 1e-6 and x0.max() <= 1.0 + 1e-6
+    xg = (torch.ones(n, D) * 10).requires_grad_(True)
+    g = torch.autograd.grad(tfc._predict_x0(xg, torch.zeros(n, D), abar[0]).sum(), xg)[0]
+    assert g.abs().max() == 0, "a saturated clamp must have zero gradient"
+    # With a per-dimension clamp the guided sample cannot leave the box even under strong guidance.
+    strong = TFG(eps_fn, log_p_fn, abar, TFGConfig(rho=50.0, mu=10.0, clip_x0=torch.full((D,), 3.0)))
+    s = strong.sample(n, (D,), 20, x_init=x_init)
+    assert s.isfinite().all()
+    print(f"per-dimension clamp: bounds respected, saturated gradient zero, strong guidance stays finite "
+          f"(max |x| {s.abs().max():.2f})")
