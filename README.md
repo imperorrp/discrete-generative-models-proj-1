@@ -2,9 +2,9 @@
 
 Hypernetworks and language models for predicting guidance strengths.
 
-Modality 1: images. Method development so far on CIFAR-100; a DeepFashion notebook at 64×64
-with per-image captions is being brought to the same protocol. Modality 2: Tahoe-100M cell
-states, 25 cell lines × 100 drugs, 50 principal components.
+Modality 1: images. Method development on CIFAR-100; the dataset for results is DeepFashion
+at 64×64 with one caption per image. Modality 2: Tahoe-100M cell states, 25 cell lines × 100
+drugs, 50 principal components.
 
 ## Setup
 
@@ -17,7 +17,13 @@ pip install -e .
 Cell-state data: unzip `25lines_100drugs_pca_data_v2.zip` into `data/`; the loader in
 `src/guidance/data/cells.py` finds it there, on Colab, or on Drive. Rebuilding that folder from
 Tahoe-100M is `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb` and needs a Hugging Face
-token in the environment (`HF_TOKEN`), never in a file.
+token in the environment (`HF_TOKEN`), never in a file. Image data: unzip the DeepFashion
+"Category and Attribute Prediction Benchmark" archive into `data/`, unzip the image archive
+(`img/...`) inside that folder, and put `captions.csv` in the folder or next to it;
+`src/guidance/data/fashion.py` finds any folder up to two levels under `data/` that holds
+`Anno_coarse/` and `Eval/`, or the one `FASHION_ROOT` points to. A fine-tuned scorer from the
+flow-matching base notebook (`fashion_resnet18_classifier.pt`) dropped into `checkpoints/` or
+`data/` is reused instead of fine-tuning again.
 
 ## Layout
 
@@ -27,9 +33,11 @@ notebooks/      cifar/, tahoe/, fashion/: one notebook per method and dataset;
 src/guidance/
   baselines/    tc_lora.py, cross_attention.py, tfg.py: one file per comparison method,
                 provenance and every deviation from the paper in the header
-  data/         cifar.py, cells.py: loaders, splits and condition texts
-data/           local data, not tracked: the Tahoe PCA folder, DeepFashion captions
-  models/ training/ sampling/ eval/ utils/
+  data/         cifar.py, cells.py, fashion.py: loaders, splits, condition texts and captions
+  eval/         cell_metrics.py: distribution metrics and the k-NN scorer for cell states;
+                image_metrics.py: the fine-tuned scorer and precision / recall for images
+data/           local data, not tracked: the Tahoe PCA folder, DeepFashion
+  models/ training/ sampling/ utils/
                 planned; shared code is inline in the notebooks for now (docs/todo.md)
 scripts/ configs/ tests/
                 planned; empty until the notebook code moves into src/
@@ -39,14 +47,14 @@ paper/          LaTeX
 
 ## Status
 
-| | Modality 1 (CIFAR-100) | Modality 2 (cell states) |
-|---|---|---|
-| Diffusion baseline | done | — |
-| Flow-matching baseline | done | — |
-| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | notebook ready, not yet run |
-| Text conditioning, cross-attention | 1 run, label path off | notebook ready, not yet run |
-| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | notebook ready (per-drug Gaussian classifier), not yet run |
-| Proposed method | — | — |
+| | Modality 1 (CIFAR-100, development) | Modality 1 (DeepFashion) | Modality 2 (cell states) |
+|---|---|---|---|
+| Diffusion baseline | done | notebook ready (`cfg_fashion`), not yet run | 1 run (`cfg_cells`) |
+| Flow-matching baseline | done | their notebook as received, not aligned with the diffusion base | — |
+| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | notebook ready (captions), not yet run | notebook ready, not yet run |
+| Text conditioning, cross-attention | 1 run, label path off | notebook ready (captions), not yet run | notebook ready, not yet run |
+| Classifier guidance, TFG | 1 run, their CIFAR-10 settings | notebook ready (fine-tuned classifier), not yet run | notebook ready (per-drug Gaussian classifier), not yet run |
+| Proposed method | — | — | — |
 
 ## Notebooks
 
@@ -58,23 +66,45 @@ top to bottom; the first cell clones this repo and prints the commit it is runni
 | `notebooks/cifar/tc_lora_cifar.ipynb` | train base → freeze → train hypernetwork → wrong-text diagnostics → samples → FID |
 | `notebooks/cifar/text_xattn_cifar.ipynb` | train or load base → attach one cross-attention block → train it → same diagnostics |
 | `notebooks/cifar/tfg_cifar.ipynb` | load base → guided sampling → accuracy under a second classifier → strength sweep → FID |
-| `notebooks/tahoe/cfg_cells.ipynb` | base diffusion model for cell states with classifier-free guidance, from `Tahoe_PCA_Diffusion_CFG.ipynb` (kept as received in the same folder); adds held-out-pair evaluation: MMD, energy distance, variance ratio per guidance strength |
-| `notebooks/tahoe/tc_lora_cells.ipynb` | TC-LoRA on cell states: train base MLP → freeze → train hypernetwork → wrong-text diagnostics → per-condition MMD, energy distance, variance ratio |
+| `notebooks/tahoe/cfg_cells.ipynb` | the cell-state base with classifier-free guidance, from `Tahoe_PCA_Diffusion_CFG.ipynb` (kept as received in the same folder); adds held-out-pair evaluation per guidance strength. Run first |
+| `notebooks/tahoe/tc_lora_cells.ipynb` | TC-LoRA on cell states: load or train the base → freeze → train hypernetwork → wrong-text diagnostics → per-pair metrics |
 | `notebooks/tahoe/text_xattn_cells.ipynb` | cross-attention on cell states: one block after the MLP's input projection, the hidden vector as a single query token; same diagnostics and metrics |
-| `notebooks/tahoe/tfg_cells.ipynb` | TFG on cell states: a per-drug Gaussian classifier fitted from the training cells as the objective, a k-nearest-neighbour vote as the independent scorer; strength sweep, per-drug metrics |
+| `notebooks/tahoe/tfg_cells.ipynb` | TFG on cell states: the base told the cell line, a per-drug Gaussian classifier fitted from the training cells supplies the drug; k-nearest-neighbour scorer, strength sweep, per-pair metrics |
 | `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb`, `Tahoe_dataloader_example.ipynb` | build the Tahoe subset: download, HVGs and PCA on the training split, held-out line-drug pairs; the loader the package reuses |
-| `notebooks/fashion/CIS6720_Proj1_DiffusionCode_Modality_1.ipynb` | DeepFashion 64×64 class-conditional diffusion with classifier-free guidance and FID; being aligned with the protocol above |
+| `notebooks/fashion/cfg_fashion.ipynb` | the DeepFashion base with classifier-free guidance, from `CIS6720_Proj1_DiffusionCode_Modality_1.ipynb` (kept as received in the same folder); adds the flow-matching notebook's classifier accuracy and precision / recall, and saves the shared base. Run first |
+| `notebooks/fashion/tc_lora_fashion.ipynb` | TC-LoRA on DeepFashion, the hypernetwork reading a CLIP embedding of each image's **caption**: load or train the base → freeze → train → wrong-caption diagnostics → accuracy, FID, precision / recall |
+| `notebooks/fashion/text_xattn_fashion.ipynb` | cross-attention on DeepFashion: one block after the U-Net's bottleneck attention reading the caption's CLIP tokens; same diagnostics and metrics |
+| `notebooks/fashion/tfg_fashion.ipynb` | TFG on DeepFashion: the base with the null label steered toward a class by a fine-tuned ResNet-34; scored by the fine-tuned ResNet-18 every DeepFashion notebook uses; strength sweep, accuracy, FID, precision / recall |
 
 Each opens with the method's equations, a table from each equation to the cell that
 implements it, and what the paper did that the notebook does not. Upload `base.pt` from an
 earlier session and base training is skipped, after a check that it was trained under the same
-split and schedule. CIFAR-100 loads from a local copy if one is found, otherwise from the
-HuggingFace CDN. Every notebook ends by writing a manifest with the commit, the config, the
+split and schedule. On cell states, run `cfg_cells.ipynb` first: it trains the base once, with
+the recipe every cell notebook shares (their MLP, 50 epochs, constant learning rate, fp16), and
+the three comparison notebooks load its `checkpoints/diffusion_cfg/best.pt`, or the path in
+`CELL_BASE_CKPT`, so all four sit on the same weights; if it is absent they train the same recipe
+themselves. All four evaluate the same held-out line-drug pairs, the largest pair of each of the
+six most populous drugs (one pair per drug: the six largest pairs outright are five lines of one
+drug), with 400 samples each and the same metrics. The three comparison notebooks clamp the
+predicted clean state to each principal component's training range while sampling, TFG's
+`clip_sample` translated to cells: under the base's cosine schedule the first sampling step
+divides the denoiser's residual by 5e-5, and without the clamp a slightly imprecise base, or any
+guidance through that estimate, leaves the data range. `CFG_CLIP_X0=0` turns it off; every
+manifest records the setting, how often it engaged, and a scale check that flags any row whose
+variance is more than five times that of the real cells. DeepFashion works the same way: `cfg_fashion.ipynb` trains the base
+(their U-Net and recipe) and saves `checkpoints/diffusion_fashion/best.pt`, or the path in
+`FASHION_BASE_CKPT`; the three comparison notebooks load it, fine-tune (once, cached) the
+ResNet-18 scorer with the flow-matching notebook's recipe, and all four evaluate 2048 generated
+images against the same 2048 class-balanced validation images with the same scorer. CIFAR-100
+loads from a local copy if one is found, otherwise from the HuggingFace CDN. Every notebook ends by writing a manifest with the commit, the config, the
 hardware, training time and every reported number.
 
 Any config field can be set from the environment without editing a cell, for headless runs
 or a different GPU: `CFG_BASE_EPOCHS=1 CFG_LIMIT=5000`, `CFG_LABEL_PATH=true`,
-`CFG_SWEEP=0,0.5,1`. `N_FID=10000` turns on FID in the image notebooks. Headless:
+`CFG_SWEEP=0,0.5,1`. `N_FID=10000` turns on FID in the CIFAR notebooks; the DeepFashion
+notebooks always evaluate `CFG_N_EVAL` images (2048 by default). Data and checkpoint locations:
+`TAHOE_PCA_DIR`, `FASHION_ROOT`, `CELL_BASE_CKPT`, `FASHION_BASE_CKPT`, `FASHION_CKPT_DIR`.
+Headless:
 
 ```bash
 CFG_BASE_EPOCHS=8 jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=-1 \

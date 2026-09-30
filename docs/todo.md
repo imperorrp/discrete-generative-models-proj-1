@@ -14,15 +14,25 @@
 - **Modality 2: evaluation.** All four Tahoe notebooks now call `src/guidance/eval/cell_metrics.py`
   (MMD, energy distance, Fréchet distance on the PCs, precision, recall, variance ratio, and the
   k-nearest-neighbour drug scorer with its accuracy on real validation cells as the ceiling),
-  and all sample with ancestral DDPM, η = 1, 250 steps, no clamp, as the base's own notebook.
+  and all sample with ancestral DDPM, η = 1, 250 steps, as the base's own notebook; the three
+  comparison notebooks clamp the predicted clean state to each PC's training range (TFG's
+  `clip_sample` translated; `CFG_CLIP_X0=0` removes it) because the first sampling step divides
+  the denoiser's residual by 5e-5 under this schedule, and every notebook runs a scale check
+  that flags rows whose variance leaves the data range. Evaluation pairs are the largest
+  held-out pair of each of the six most populous drugs, one pair per drug, so wrong-condition
+  rows are a different drug.
   Still wanted: a Fréchet distance in a frozen single-cell foundation-model embedding (scVI,
   Geneformer or scGPT) as the closer analogue of FID, and a classifier-free control metric,
   agreement of the generated mean shift from DMSO with the real shift per drug (the loader
   exposes `dmso_reference`).
-- **Modality 2: base training budget and sharing.** The teammate's base ran 50 epochs at batch 256
-  (validation MSE 0.2557, still improving). The comparison notebooks default to 30. Train once
-  and share `base.pt` across the four notebooks; `cfg_cells` keeps its own `checkpoints/diffusion_cfg/best.pt`
-  format, so a converter or a common format is needed before that is one file.
+- **Modality 2: one base.** All four cell notebooks now share the recipe of `cfg_cells` (their
+  MLP, 50 epochs, batch 256, AdamW 2e-4 constant, fp16 autocast, joint condition dropout 0.1,
+  diffusers cosine schedule, seed 42), and the three comparison notebooks load
+  `checkpoints/diffusion_cfg/best.pt` from a `cfg_cells` run when present (or `CELL_BASE_CKPT`),
+  so they sit on literally the same weights. Run `cfg_cells` first on a machine, then the
+  others. The image side follows the same rule: `cfg_fashion` trains the base and saves
+  `checkpoints/diffusion_fashion/best.pt` (or `FASHION_BASE_CKPT`), the three DeepFashion
+  comparison notebooks load it.
 - **Modality 2: condition text.** Today the text is drug name, mechanism-of-action class and
   targets, plus cell-line name and organ, from the Tahoe metadata. Richer public descriptions
   (DrugBank or ChEMBL mechanism paragraphs, pathway names, the line's driver mutations from
@@ -30,8 +40,24 @@
   result is seen and never describe observed expression effects. The text encoder is CLIP's;
   a biomedical encoder (PubMedBERT, BioLinkBERT) or a general LLM's embeddings is a one-function
   swap in `build_cond_embeddings` and should be an ablation.
-- **Modality 1 dataset.** The DeepFashion notebook in `notebooks/fashion/` uses a larger U-Net
-  with attention and mixed precision. Bring it to the course-style U-Net and the shared
-  protocol (fixed-noise validation, manifest, seeds) before the comparison arms move to it.
+- **Modality 1: DeepFashion.** The four DeepFashion notebooks share their U-Net (64 base
+  channels, bottleneck attention), their schedule, their recipe (AdamW 2e-4 constant, fp16, clip 1,
+  label dropout 0.1, 50 epochs with early stopping in `cfg_fashion`; the comparison notebooks
+  load its checkpoint), their sampler settings (DDIM, 50 steps, clamp, η = 0) and their
+  evaluation (2048 class-balanced validation images, fine-tuned ResNet-18 scorer, FID,
+  top-1 / top-5, precision / recall). Two things to state when the numbers are reported: the
+  base notebook as received used batch 16, `cfg_fashion` uses 64 like its flow-matching twin;
+  and `cfg_fashion` keeps their sampler while the comparison notebooks use ours (rounded vs
+  truncated step grid; noise recomputed from the clamped clean estimate), which differ only
+  where the clamp engages. Still to do: the text arms condition on per-image captions and TFG on
+  the class, because a classifier gives an objective per class and not per caption; a
+  caption-level objective for TFG (CLIP image-text similarity) would make the three arms
+  condition on the same thing and is the natural next step.
+- **Modality 1: the two base notebooks are not a matched pair.** The flow-matching notebook
+  (`CIS6720_Proj1_FlowMatchingCode_Modality_1.ipynb`, as received) and the diffusion one differ
+  in U-Net, batch size (64 vs 16), weight decay, learning-rate schedule (cosine vs constant),
+  EMA (flow matching only) and sampler steps (100 Euler vs 50 DDIM). A diffusion-vs-flow
+  comparison on DeepFashion needs one architecture and one recipe for both; only the diffusion
+  base is aligned so far.
 - **Every manifest** now records hardware and training seconds; the paper's compute table
   reads those.
