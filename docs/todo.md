@@ -43,13 +43,14 @@
 - **Modality 1: DeepFashion.** The four DeepFashion notebooks share their U-Net (64 base
   channels, bottleneck attention), their schedule, their recipe (AdamW 2e-4 constant, fp16, clip 1,
   label dropout 0.1, 50 epochs with early stopping in `cfg_fashion`; the comparison notebooks
-  load its checkpoint), their sampler settings (DDIM, 50 steps, clamp, η = 0) and their
+  load its checkpoint), one sampler (ancestral DDPM: the DDIM step with η = 1, 50 steps, clean
+  estimate clamped to [-1, 1]; `CFG_ETA=0` gives deterministic DDIM everywhere) and their
   evaluation (2048 class-balanced validation images, fine-tuned ResNet-18 scorer, FID,
-  top-1 / top-5, precision / recall). Two things to state when the numbers are reported: the
+  top-1 / top-5, precision / recall). Three things to state when the numbers are reported: the
   base notebook as received used batch 16, `cfg_fashion` uses 64 like its flow-matching twin;
-  and `cfg_fashion` keeps their sampler while the comparison notebooks use ours (rounded vs
-  truncated step grid; noise recomputed from the clamped clean estimate), which differ only
-  where the clamp engages. Still to do: the text arms condition on per-image captions and TFG on
+  their sampler was deterministic and `cfg_fashion` adds the η term to it; and the comparison
+  notebooks' sampler differs from theirs in two details (rounded vs truncated step grid; noise
+  recomputed from the clamped clean estimate) that only matter where the clamp engages. Still to do: the text arms condition on per-image captions and TFG on
   the class, because a classifier gives an objective per class and not per caption; a
   caption-level objective for TFG (CLIP image-text similarity) would make the three arms
   condition on the same thing and is the natural next step.

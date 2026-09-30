@@ -94,7 +94,8 @@ manifest records the setting, how often it engaged, and a scale check that flags
 variance is more than five times that of the real cells. DeepFashion works the same way: `cfg_fashion.ipynb` trains the base
 (their U-Net and recipe) and saves `checkpoints/diffusion_fashion/best.pt`, or the path in
 `FASHION_BASE_CKPT`; the three comparison notebooks load it, fine-tune (once, cached) the
-ResNet-18 scorer with the flow-matching notebook's recipe, and all four evaluate 2048 generated
+ResNet-18 scorer with the flow-matching notebook's recipe, and all four sample with the same
+ancestral DDPM sampler (50 steps, `CFG_ETA=0` for deterministic DDIM) and evaluate 2048 generated
 images against the same 2048 class-balanced validation images with the same scorer. CIFAR-100
 loads from a local copy if one is found, otherwise from the HuggingFace CDN. Every notebook ends by writing a manifest with the commit, the config, the
 hardware, training time and every reported number.
