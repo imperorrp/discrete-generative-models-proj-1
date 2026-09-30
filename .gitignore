@@ -33,4 +33,4 @@ wandb/
 notes/
 
 # Pre-downloaded CIFAR-100 and trained checkpoints (hundreds of MB)
-cifar/
+/cifar/

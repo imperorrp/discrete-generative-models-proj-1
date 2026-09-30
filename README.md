@@ -2,7 +2,9 @@
 
 Hypernetworks and language models for predicting guidance strengths.
 
-Modality 1: CIFAR-100 images. Modality 2: single-cell states (PCA-50 of Tahoe-100M).
+Modality 1: images. Method development so far on CIFAR-100; a DeepFashion notebook at 64×64
+with per-image captions is being brought to the same protocol. Modality 2: Tahoe-100M cell
+states, 25 cell lines × 100 drugs, 50 principal components.
 
 ## Setup
 
@@ -12,16 +14,21 @@ conda activate dgm
 pip install -e .
 ```
 
-The cell-state data needs a Hugging Face token: `export HF_TOKEN=...`
+Cell-state data: unzip `25lines_100drugs_pca_data_v2.zip` into `data/`; the loader in
+`src/guidance/data/cells.py` finds it there, on Colab, or on Drive. Rebuilding that folder from
+Tahoe-100M is `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb` and needs a Hugging Face
+token in the environment (`HF_TOKEN`), never in a file.
 
 ## Layout
 
 ```
-notebooks/      one notebook per method; runs/ holds executed copies with outputs, and log.md
+notebooks/      cifar/, tahoe/, fashion/: one notebook per method and dataset;
+                runs/ holds executed copies with outputs, and log.md
 src/guidance/
   baselines/    tc_lora.py, cross_attention.py, tfg.py: one file per comparison method,
                 provenance and every deviation from the paper in the header
-  data/         cifar.py: loader and the fixed split
+  data/         cifar.py, cells.py: loaders, splits and condition texts
+data/           local data, not tracked: the Tahoe PCA folder, DeepFashion captions
   models/ training/ sampling/ eval/ utils/
                 planned; shared code is inline in the notebooks for now (docs/todo.md)
 scripts/ configs/ tests/
@@ -36,7 +43,7 @@ paper/          LaTeX
 |---|---|---|
 | Diffusion baseline | done | — |
 | Flow-matching baseline | done | — |
-| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | notebook ready, awaiting data |
+| TC-LoRA | 3 runs (runs 1–2 label path on, run 3 off) | loader and notebook ready, not yet run |
 | Text conditioning, cross-attention | 1 run, label path off | — |
 | Classifier guidance, TFG | 1 run, their CIFAR-10 settings | — |
 | Proposed method | — | — |
@@ -48,10 +55,12 @@ top to bottom; the first cell clones this repo and prints the commit it is runni
 
 | Notebook | What it does |
 |---|---|
-| `notebooks/tc_lora_cifar.ipynb` | train base → freeze → train hypernetwork → wrong-text diagnostics → samples → FID |
-| `notebooks/text_xattn_cifar.ipynb` | train or load base → attach one cross-attention block → train it → same diagnostics |
-| `notebooks/tfg_cifar.ipynb` | load base → guided sampling → accuracy under a second classifier → strength sweep → FID |
-| `notebooks/tc_lora_cells.ipynb` | TC-LoRA on cell states; synthetic data until the loader lands |
+| `notebooks/cifar/tc_lora_cifar.ipynb` | train base → freeze → train hypernetwork → wrong-text diagnostics → samples → FID |
+| `notebooks/cifar/text_xattn_cifar.ipynb` | train or load base → attach one cross-attention block → train it → same diagnostics |
+| `notebooks/cifar/tfg_cifar.ipynb` | load base → guided sampling → accuracy under a second classifier → strength sweep → FID |
+| `notebooks/tahoe/tc_lora_cells.ipynb` | TC-LoRA on cell states: train base MLP → freeze → train hypernetwork → wrong-text diagnostics → per-condition MMD, energy distance, variance ratio |
+| `notebooks/tahoe/tahoe_colab_downloader_with_pca.ipynb`, `Tahoe_dataloader_example.ipynb` | build the Tahoe subset: download, HVGs and PCA on the training split, held-out line-drug pairs; the loader the package reuses |
+| `notebooks/fashion/CIS6720_Proj1_DiffusionCode_Modality_1.ipynb` | DeepFashion 64×64 class-conditional diffusion with classifier-free guidance and FID; being aligned with the protocol above |
 
 Each opens with the method's equations, a table from each equation to the cell that
 implements it, and what the paper did that the notebook does not. Upload `base.pt` from an

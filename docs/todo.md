@@ -11,4 +11,13 @@
   by which the model learns the condition. See `docs/findings.md`. Done for TC-LoRA and
   cross-attention (`label_path` in each notebook's config). TFG already treats the
   null-label model as its unconditional base.
-- **Modality 2 loader.** Nothing on the cell-state side runs without it.
+- **Modality 2.** Loader done (`src/guidance/data/cells.py`, on the team's `TahoePCs`). Next:
+  run `notebooks/tahoe/tc_lora_cells.ipynb` on Colab; then cross-attention and TFG on cells
+  (TFG's objective there is the soft k-means cluster from `condition="cluster"`); a control
+  metric that needs no trained classifier, such as agreement of the generated mean shift from
+  DMSO with the real one per condition.
+- **Modality 1 dataset.** The DeepFashion notebook in `notebooks/fashion/` uses a larger U-Net
+  with attention and mixed precision. Bring it to the course-style U-Net and the shared
+  protocol (fixed-noise validation, manifest, seeds) before the comparison arms move to it.
+- **Every manifest** now records hardware and training seconds; the paper's compute table
+  reads those.
