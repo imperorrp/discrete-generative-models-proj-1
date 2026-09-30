@@ -34,3 +34,10 @@ notes/
 
 # Pre-downloaded CIFAR-100 and trained checkpoints (hundreds of MB)
 /cifar/
+
+# Tahoe zip unpacked next to a notebook (content/data/Tahoe/...), the zips themselves, and
+# the checkpoint folders and manifests the notebooks write
+content/
+*.zip
+checkpoints/
+manifest_*.json
