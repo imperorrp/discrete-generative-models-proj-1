@@ -11,12 +11,25 @@
   by which the model learns the condition. See `docs/findings.md`. Done for TC-LoRA and
   cross-attention (`label_path` in each notebook's config). TFG already treats the
   null-label model as its unconditional base.
-- **Modality 2.** Loader and all three comparison notebooks exist under `notebooks/tahoe/`;
-  none has run on a GPU yet. TFG's objective is a per-drug Gaussian classifier (LDA) fitted by
-  moments in the notebook, scored by a k-nearest-neighbour vote on true drug labels; both
-  scorers' accuracy on real validation cells is the ceiling and is printed. Still wanted: a
-  control metric that needs no classifier at all, such as agreement of the generated mean
-  shift from DMSO with the real one per drug (the loader exposes `dmso_reference`).
+- **Modality 2: evaluation.** All four Tahoe notebooks now call `src/guidance/eval/cell_metrics.py`
+  (MMD, energy distance, Fréchet distance on the PCs, precision, recall, variance ratio, and the
+  k-nearest-neighbour drug scorer with its accuracy on real validation cells as the ceiling),
+  and all sample with ancestral DDPM, η = 1, 250 steps, no clamp, as the base's own notebook.
+  Still wanted: a Fréchet distance in a frozen single-cell foundation-model embedding (scVI,
+  Geneformer or scGPT) as the closer analogue of FID, and a classifier-free control metric,
+  agreement of the generated mean shift from DMSO with the real shift per drug (the loader
+  exposes `dmso_reference`).
+- **Modality 2: base training budget and sharing.** The teammate's base ran 50 epochs at batch 256
+  (validation MSE 0.2557, still improving). The comparison notebooks default to 30. Train once
+  and share `base.pt` across the four notebooks; `cfg_cells` keeps its own `checkpoints/diffusion_cfg/best.pt`
+  format, so a converter or a common format is needed before that is one file.
+- **Modality 2: condition text.** Today the text is drug name, mechanism-of-action class and
+  targets, plus cell-line name and organ, from the Tahoe metadata. Richer public descriptions
+  (DrugBank or ChEMBL mechanism paragraphs, pathway names, the line's driver mutations from
+  `panel_review.json`) would give the language model more to work with; write them before any
+  result is seen and never describe observed expression effects. The text encoder is CLIP's;
+  a biomedical encoder (PubMedBERT, BioLinkBERT) or a general LLM's embeddings is a one-function
+  swap in `build_cond_embeddings` and should be an ablation.
 - **Modality 1 dataset.** The DeepFashion notebook in `notebooks/fashion/` uses a larger U-Net
   with attention and mixed precision. Bring it to the course-style U-Net and the shared
   protocol (fixed-noise validation, manifest, seeds) before the comparison arms move to it.
